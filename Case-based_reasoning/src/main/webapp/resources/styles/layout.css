@@ -1,0 +1,287 @@
+body{margin:0; padding:0; font-size:13px; font-family:Georgia, "Times New Roman", Times, serif; color:#919191; background-color:#232323;}
+a{outline:none; text-decoration:none;}
+footer, header, hgroup, nav, section{display:block; margin:0; padding:0;}
+div.wrapper{display:block; width:100%; margin:0; padding:0; text-align:left;}
+
+.head, .head a{color:#FFFFFF; background-color:#333333;}
+.content{height: 545px; color:#000; background-color:#FFFFFF;}
+.foot, .foot a{color:#919191; background-color:#232323;}
+#header, #container, #footer{display:block; width:960px; margin:0 auto;}
+
+h1, h2{margin:0; padding:0;}
+#add_info, fieldset{margin:0; padding:0; border:none;}
+input, textarea, select{font-size:12px; font-family:Georgia,"Times New Roman",Times,serif;}
+#header{padding:5px 0; height:55px;}
+
+#header hgroup{float:left; margin:0 0 20px 0;}
+#header hgroup h1, #header hgroup h2{font-weight:normal; text-transform:none;}
+#header hgroup h1{font-size:36px;}
+#header hgroup h2{font-size:13px;}
+
+#header #add_info{display:block; width:220px; float:right; margin:20px 0; padding:0;}
+#user_name{display:inline; float:right; text-align: left; padding:5px; padding-right:15px;}
+#exit {float:right}
+.button, button{display:inline; padding: 5px 10px 5px 10px; text-align: center; font-size:12px; font-weight:bold; text-transform:uppercase; color:#232323; background-color:#FF9900; border:none; cursor:pointer;}
+.button:hover, button:hover{color:#FFFFFF;}
+.button.active {color:#FFF;}
+
+#cssmenu ul { margin: 0; padding: 0;}
+#cssmenu li { margin: 0; padding: 0;}
+#cssmenu a { margin: 0; padding: 0;}
+#cssmenu ul {list-style: none;}
+#cssmenu {height: 35px; background-color: rgb(35,35,35); box-shadow: 0px 2px 3px rgba(0,0,0,.4);}
+
+
+#cssmenu > ul > li {
+    float: left;
+    margin-left: 15px;
+    position: relative;
+}
+
+#cssmenu > ul > li > a {
+    color: #FFFFFF;
+    font-size: 15px;
+    line-height: 25px;
+    padding: 5px 10px;
+-webkit-transition: color .15s;
+   -moz-transition: color .15s;
+     -o-transition: color .15s;
+        transition: color .15s;
+}
+
+#cssmenu > ul > li > a:hover, #cssmenu .active a {color: #F4921E; }
+
+
+#cssmenu > ul > li > ul {
+    opacity: 0;
+    visibility: hidden;
+    padding: 16px 0 20px 0;
+    background-color: rgb(250,250,250);
+    text-align: left;
+    position: absolute;
+    top: 55px;
+    left: 50%;
+    margin-left: -90px;
+    width: 180px;
+-webkit-transition: all .3s .1s;
+   -moz-transition: all .3s .1s;
+     -o-transition: all .3s .1s;
+        transition: all .3s .1s;
+-webkit-border-radius: 5px;
+   -moz-border-radius: 5px;
+        border-radius: 5px;
+-webkit-box-shadow: 0px 1px 3px rgba(0,0,0,.6);
+   -moz-box-shadow: 0px 1px 3px rgba(0,0,0,.6);
+        box-shadow: 0px 1px 3px rgba(0,0,0,.6);
+}
+
+#cssmenu > ul > li:hover > ul {
+    opacity: 1;
+    top: 35px;
+    visibility: visible;
+}
+
+#cssmenu > ul > li > ul:before{
+    content: '';
+    display: block;
+    border-color: transparent transparent rgb(250,250,250) transparent;
+    border-style: solid;
+    border-width: 10px;
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    margin-left: -10px;
+}
+
+#cssmenu > ul ul > li { position: relative;}
+
+#cssmenu ul ul a{
+    color: rgb(50,50,50);
+    font-size: 13px;
+    background-color: rgb(250,250,250);
+    padding: 5px 8px 7px 16px;
+    display: block;
+-webkit-transition: background-color .1s;
+   -moz-transition: background-color .1s;
+     -o-transition: background-color .1s;
+        transition: background-color .1s;
+}
+
+
+#cssmenu ul ul ul {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    top: -16px;
+    left: 206px;
+    padding: 16px 0 20px 0;
+    background-color: rgb(250,250,250);
+    text-align: left;
+    width: 160px;
+-webkit-transition: all .3s;
+   -moz-transition: all .3s;
+     -o-transition: all .3s;
+        transition: all .3s;
+-webkit-border-radius: 5px;
+   -moz-border-radius: 5px;
+        border-radius: 5px;
+-webkit-box-shadow: 0px 1px 3px rgba(0,0,0,.4);
+   -moz-box-shadow: 0px 1px 3px rgba(0,0,0,.4);
+        box-shadow: 0px 1px 3px rgba(0,0,0,.4);
+}
+
+#cssmenu ul ul a:hover{
+    background-color: #F4921E;
+    color: rgb(240,240,240);
+}
+
+/*----------------------------------------------Content Area-------------------------------------*/
+
+#container{padding:15px 0;}
+#container section{display:block; width:100%; margin:0 0 30px 0; padding:0;}
+
+/*----------------------------------------------Footer-------------------------------------*/
+
+#footer{padding:20px 0;}
+#footer p{margin:0; padding:0;}
+
+/*---------------------------------------------Tabs----------------------------------------*/
+ul.tabs {
+ margin: 0;
+ padding: 0;
+ float: left;
+ list-style: none;
+ height: 32px; /*--Set height of tabs--*/
+ border-bottom: 1px solid #999;
+ border-left: 1px solid #999;
+ width: 100%;
+}
+ul.tabs li {
+ float: left;
+ margin: 0;
+ padding: 0;
+ height: 31px; /*--Subtract 1px from the height of the unordered list--*/
+ line-height: 31px; /*--Vertically aligns the text within the tab--*/
+ margin-bottom: -1px; /*--Pull the list item down 1px--*/
+ overflow: hidden;
+ position: relative;
+ background-color: #333333;
+}
+ul.tabs li a {
+ text-decoration: none;
+ color: #FFF;
+ display: block;
+ font-size: 1.2em;
+ padding: 0 20px;
+ outline: none;
+}
+ul.tabs li a:hover {
+ color: #F4921E;
+}
+html ul.tabs li.active a, html ul.tabs li.active a:hover  { /*--Makes sure that the active tab does not listen to the hover properties--*/
+ color: #F4921E;
+}
+
+.tab_container {
+ border: 1px solid #999;
+ border-top: none;
+ overflow: hidden;
+ clear: both; 
+ width: 100%;
+ background: #fff;
+}
+.defTable, .defForm {
+	font-family:Arial, Helvetica, sans-serif;
+	color:#666;
+	font-size:12px;	
+	background:#eaebec;
+	width: 100%;
+	height: 100%;
+
+	-moz-border-radius:3px;
+	-webkit-border-radius:3px;
+	border-radius:3px;
+
+	-moz-box-shadow: 0 1px 2px #d1d1d1;
+	-webkit-box-shadow: 0 1px 2px #d1d1d1;
+	box-shadow: 0 1px 2px #d1d1d1;
+}
+.defTable th, .defForm th{
+	padding:11px 13px 11px 13px;
+	background: #ededed;
+	background: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#ebebeb));
+	background: -moz-linear-gradient(top,  #ededed,  #ebebeb);
+}
+.defTable tr, .defForm tr{
+	text-align: center;
+	padding-left:20px;
+}
+.defTable td, .defForm td{
+	padding:8px;
+	border-top: 1px solid #ffffff;
+	border-bottom:1px solid #e0e0e0;
+	border-left: 1px solid #e0e0e0;
+
+	background: #fafafa;
+	background: -webkit-gradient(linear, left top, left bottom, from(#fbfbfb), to(#fafafa));
+	background: -moz-linear-gradient(top,  #fbfbfb,  #fafafa);
+}
+.defTable tr.even td, .defForm tr.even td{
+	background: #f6f6f6;
+	background: -webkit-gradient(linear, left top, left bottom, from(#f8f8f8), to(#f6f6f6));
+	background: -moz-linear-gradient(top,  #f8f8f8,  #f6f6f6);
+}
+.defTable tr:last-child td, .defForm tr:last-child td{
+	border-bottom:0;
+}
+.defTable tr:last-child td:first-child, .defForm tr:last-child td:first-child{
+	-moz-border-radius-bottomleft:3px;
+	-webkit-border-bottom-left-radius:3px;
+	border-bottom-left-radius:3px;
+}
+.defTable tr:last-child td:last-child, .defForm tr:last-child td:last-child{
+	-moz-border-radius-bottomright:3px;
+	-webkit-border-bottom-right-radius:3px;
+	border-bottom-right-radius:3px;
+}
+.defTable tr:hover td{
+	background: #F4921E;
+}
+.action{
+	text-color: #333;
+	cursor:pointer;
+}
+.action:hover{
+	text-decoration: underline;
+}
+/*-----------------------------------------------------Popup----------------------------------*/
+.popupbox {
+ width:80%;
+ height:80%;
+ display: none;
+ float: left;
+ position: fixed;
+ background: #FFF;
+ top: 50%; left: 50%;
+ z-index: 99999;
+ -webkit-box-shadow: 0px 0px 20px #000;
+ -moz-box-shadow: 0px 0px 20px #000;
+ box-shadow: 0px 0px 20px #000;
+}
+#fade {
+ display: none; /* Hidden as default */
+ background: #000;
+ position: fixed; left: 0; top: 0;
+ width: 100%; height: 100%;
+ opacity: .80;
+ z-index: 9999;
+}
+
+.pageList {
+	text-align:center;
+	padding:10px 0;
+}
+
+.pageList a {
+	margin: 0px 0px 0px 10px;
+}
