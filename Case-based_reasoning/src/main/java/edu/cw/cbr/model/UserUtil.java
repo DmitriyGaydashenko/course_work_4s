@@ -1,13 +1,9 @@
 package edu.cw.cbr.model;
 
 import java.sql.SQLException;
-import java.util.List;
-
-import org.hibernate.criterion.Projections;
-import org.hibernate.criterion.Restrictions;
-
 import edu.cw.cbr.controller.security.SecurityUtil;
 import edu.cw.cbr.domain.Sysuser;
+import edu.cw.cbr.domain.Usertype;
 
 /**
  * The class {@code UserUtil} contains methods for performing basic
@@ -45,7 +41,11 @@ public class UserUtil {
 		/**
 		 * User with this email already exists.
 		 */
-		EMAIL_EXISTS};
+		EMAIL_EXISTS,
+		/**
+		 * Invalid parameter
+		 */
+		INVALID_PARAM};
 	/**
 	 * Checks if user with id {@code sysuserId} is valid.
 	 * @param sysuserId - id of user to be checked.
@@ -75,7 +75,7 @@ public class UserUtil {
 	 * @throws SQLException
 	 */
 	public static Sysuser getSysUser(int sysuserId) throws SQLException {
-		GenericDAO dao = new GenericDAO();
+		SysuserDAO dao = new SysuserDAO();
 		Sysuser user = UserUtil.getSysUser(sysuserId, dao);
 		dao.closeSession();
 		return user;
@@ -91,7 +91,7 @@ public class UserUtil {
 	 * @throws SQLException
 	 * @throws IllegalArgumentException if {@code dao} is <tt>null</tt>
 	 */
-	public static Sysuser getSysUser(int sysuserId, GenericDAO dao) 
+	private static Sysuser getSysUser(int sysuserId, GenericDAO dao) 
 			throws IllegalArgumentException, SQLException  {
 		if (dao == null)
 			throw new IllegalArgumentException();
@@ -109,12 +109,11 @@ public class UserUtil {
 	 * {@code email, password} exists, else returns <tt>null</tt>.
 	 */
 	public static Sysuser getSysuser(String email, String password) {
-		String query = "from Sysuser where email = '"+email+"' and password = '" 
-				+SecurityUtil.hashInput(password)+"'";
-		GenericDAO dao = new GenericDAO();
-		List<Sysuser> users = dao.runSelectQuery(query);
+		SysuserDAO dao = new SysuserDAO();
+		Sysuser user = dao.getSysuser(email, 
+				SecurityUtil.hashInput(password));
 		dao.closeSession();
-		return users.isEmpty() ? null : users.get(0);
+		return user;
 	}
 	
 	/**
@@ -141,6 +140,11 @@ public class UserUtil {
 	*  fields.
 	*/
 	private static RegistrationState userRegValidation(Sysuser user) {
+		// check user's attributes
+		if(user.getFName().isEmpty() || user.getLName().isEmpty() || 
+				user.getEmail().isEmpty() || user.getPassword().isEmpty() 
+				|| !UsertypeUtil.exist(user.getUsertype().getUserTypeId()))
+			return UserUtil.RegistrationState.INVALID_PARAM;
 		if (!UserUtil.isEmailValid(user.getEmail()))
 			return RegistrationState.EMAIL_EXISTS;
 		return RegistrationState.SUCCESS;
@@ -149,31 +153,50 @@ public class UserUtil {
 	/**
 	 * Validates user email. If user with same email already exists returns
 	 * <tt>false</tt>.
-	 * @param email - user;s email to be checked
+	 * @param email - user's email to be checked
 	 * @return - true if same email does not exist.
 	 */
 	public static boolean isEmailValid(String email) {
-		GenericDAO dao = new GenericDAO();
-		Long count = (Long)dao.getCriteria(Sysuser.class)
-				.add(Restrictions.eq("email", email))
-				.setProjection(Projections.rowCount()).uniqueResult();
+		SysuserDAO dao = new SysuserDAO();
+		boolean exist = dao.emailExist(email);
 		dao.closeSession();
-		return !(count > 0);
+		return !exist;
 	}
 	
 	/**
 	 * Tries to add new user. If {@code UserUtil.userRegValidation} returns
 	 * {@code  UserUtil.RegistrationState.SUCCESS} adds new user. Returns registration
 	 * state.
-	 * @param user - to be added.
+	 * @param model - model of the requesting page.
+	 * @param fName - user's first name.
+	 * @param lName - user's last name.
+	 * @param email - user's email.
+	 * @param password - user's password.
+	 * @param usertypeId - user's type id.
 	 * @return - registration state.
 	 * @throws SQLException
 	 */
-	public static RegistrationState addNewUser(Sysuser user) throws SQLException {
+	public static RegistrationState addNewUser(String fName, String lName,
+			String email, String password, int usertypeId) {
+		// create user
+		Sysuser user = new Sysuser();
+		user.setFName(fName);
+		user.setLName(lName);
+		user.setEmail(email);
+		// get hash of user's password
+		user.setPassword(SecurityUtil.hashInput(password));
+		Usertype type = new Usertype();
+		type.setUserTypeId(usertypeId);
+		user.setUsertype(type);
 		UserUtil.RegistrationState rState = UserUtil.userRegValidation(user);
 		if (rState == UserUtil.RegistrationState.SUCCESS) {
 			GenericDAO dao = new GenericDAO();
-			dao.addEntity(user);
+			try {
+				dao.addEntity(user);
+			} catch (SQLException e) {
+				rState = UserUtil.RegistrationState.INVALID_PARAM;
+				e.printStackTrace();
+			}
 			dao.closeSession();
 		}
 		return rState;

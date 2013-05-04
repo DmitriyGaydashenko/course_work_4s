@@ -7,12 +7,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
-import org.hibernate.Criteria;
-import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.hibernate.Transaction;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.service.ServiceRegistry;
 import org.hibernate.service.ServiceRegistryBuilder;
 
@@ -23,10 +22,9 @@ import org.hibernate.service.ServiceRegistryBuilder;
  * @author Dmitriy Gaydashenko
  *
  */
-@Repository @Service
-final class GenericDAO {
+@Repository @Service class GenericDAO {
 	
-	 private Session session;
+	 protected Session session;
 	 private static final Logger logger = 
 			 LoggerFactory.getLogger(GenericDAO.class);
 	 
@@ -104,21 +102,18 @@ final class GenericDAO {
 		session.update(entity);
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	/**
 	 * Return the persistent instance of the given entity class with the given
-	 *  identifier,
-	 * <b>assuming that the instance exists</b>.
+	 *  identifier.
 	 * @param entityClass a persistent class
-	 * @param id a valid identifier of an existing persistent instance of 
-	 * the class
-	 * @return the persistent instance
+	 * @param id a valid identifier.
+	 * @return the persistent instance.
 	 * @throws SQLException
-	 * @see org.hibernate.Session.load(Class theClass, Serializable id)
+	 * @see org.hibernate.Session.get(Class theClass, Serializable id)
 	 */
-	public <Entity> Entity getEntityById(Class entityClass,
+	public <T> T getEntityById(Class<T> entityClass,
 			int id) throws SQLException {
-	    return (Entity) session.load(entityClass, id);
+	    return entityClass.cast(session.get(entityClass, id));
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -135,38 +130,14 @@ final class GenericDAO {
 	}
 	
 	/**
-	 * Return result of processing of Query for the given HQL query string.
-	 * @param query HQL query string
-	 * @return result of processing of Query
-	 */
-	@SuppressWarnings("unchecked")
-	public <Entity> List<Entity> runSelectQuery(String query) {
-		return (List<Entity>) session.createQuery(query).list();
-	}
-	
-	/**
-	 * Remove a persistent instance from the database. 
-	 * The argument may be an instance associated with the receiving Session or
-	 * a transient instance 
-	 * with an identifier associated with existing persistent state. 
-	 * @param entity deleting instance
+	 * Remove a persistent instance with id - {@code id} from the database. 
+	 * @param id deleting instance's identifier.
+	 * @entityClass - class of deleting instance.
 	 * @throws SQLException
 	 */
-	public <Entity> void deleteEntity(Entity entity) throws SQLException {
-        if (entity == null)
-        	throw new IllegalArgumentException();
-        session.delete(entity);
-	}
-	
-	/**
-	 * Return instance of {@code Criteria}, which represents a query against 
-	 * {@code clazz}.
-	 * @param clazz - particular persistent class for which instance of
-	 * {@code Criteria} will be created
-	 * @return instance of {@code Criteria} for {@code clazz}.
-	 */
-	public Criteria  getCriteria(Class clazz) {
-		return session.createCriteria(clazz);
+	public <T> void deleteEntity(Class<T> entityClass, int id) throws SQLException {
+		T entity = this.getEntityById(entityClass, id);
+		session.delete(entity);
 	}
 	
 	/**
@@ -185,14 +156,60 @@ final class GenericDAO {
 	}
 	
 	/**
+	 * Rolls back current transaction.
+	 */
+	public void rollbackTransaction() {
+		session.getTransaction().rollback();
+	}
+	/**
 	 * Closes session.
 	 * @throws IllegalStateException if session is not open.
 	 */
 	public void closeSession() throws IllegalStateException {
 		if(session == null || !session.isOpen())
 			throw new IllegalStateException();
-		session.getTransaction().commit();
+		if (session.getTransaction().isActive())
+			session.getTransaction().commit();
 		session.close();
 		session = null;
+	}
+	
+	/**
+	 * Return result of passed function execution.
+	 * @param function - function to run.
+	 * @return result of passed function execution.
+	 * @throws SQLException
+	 */
+	/*public Object runStoredFunction(String function) throws SQLException {
+		return this.session.createSQLQuery("SELECT "+function).list();
+	}*/
+	
+	/**
+	 * Returns first {@code max} instances of {@code cl} starting from 
+	 * {@code from} in order specified by {@code orderBy} and {@code asc}.
+	 * @param cl - a persistent class.
+	 * @param from - starting point.
+	 * @param max - max number of entities to be returned.
+	 * @param orderBy - specifies field by which list will be ordered.
+	 * @param asc - specifies if list will be in ascending order.
+	 * @return list of first {@code max} entities, starting from {@code from}.
+	 */
+	@SuppressWarnings("unchecked")
+	public <Entity> List<Entity> getEntities(Class<Entity> cl, int from,
+			int max, String orderBy, boolean asc) {
+		Order order = asc ? Order.asc(orderBy) : Order.desc(orderBy);
+		return (List<Entity>)session.createCriteria(cl).addOrder(order)
+				.setFirstResult(from).setMaxResults(max).list();
+	}
+	
+	/**
+	 * Returns number of all entities of {@code cl}.
+	 * @param cl - a persistent class.
+	 * @return  number of all entities of {@code cl}.
+	 */
+	public <Entity> int count(Class<Entity> cl) {
+		return ((Long)session.createCriteria(cl)
+				.setProjection(Projections.rowCount()).list().get(0))
+				.intValue();
 	}
 }

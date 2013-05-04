@@ -10,10 +10,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import edu.cw.cbr.controller.security.SecurityUtil;
 import edu.cw.cbr.controller.security.UserSession;
-import edu.cw.cbr.domain.Sysuser;
-import edu.cw.cbr.domain.Usertype;
 import edu.cw.cbr.model.UserUtil;
 import edu.cw.cbr.model.UsertypeUtil;
 
@@ -34,12 +31,11 @@ public class SignUpController {
 	 * @param httpSession - HTTP session. 
 	 * (@see javax.servlet.http.HttpSession)
 	 * @return view, which corresponds to request.
-	 * @throws SQLException 
 	 */
 	@RequestMapping(value = "/signUp", method = RequestMethod.GET)
 	public String home(HttpSession httpSession, Model model) {
 		if (UserSession.isHttpSessionValid(httpSession))
-			return "redirect:" + PrecedentController.HOME_PAGE;
+			return "redirect:" + DelaultAddress.HOME_PAGE;
 		try {
 			model.addAttribute("userTypes", UsertypeUtil.getUsertypeNames());
 		} catch (SQLException e) {
@@ -76,23 +72,11 @@ public class SignUpController {
 	public @ResponseBody String signUp(Model model, @RequestParam String fName,
 			@RequestParam String lName, @RequestParam String email,
 			@RequestParam String password, @RequestParam int usertypeId) {
-		Sysuser user = new Sysuser();
-		user.setFName(fName);
-		user.setLName(lName);
-		user.setEmail(email);
-		user.setPassword(SecurityUtil.hashInput(password));
-		Usertype type = new Usertype();
-		type.setUserTypeId(usertypeId);
-		user.setUsertype(type);
 		UserUtil.RegistrationState rState = null;
-		try {
-			rState = UserUtil.addNewUser(user);
-		} catch (SQLException e) {
-			model.addAttribute(MODEL_ERROR_ATT, INTERNAL_ERROR);
-			e.printStackTrace();
-		}
+		rState = UserUtil.addNewUser(fName, lName, email, password,
+				usertypeId);
 		if (rState == UserUtil.RegistrationState.SUCCESS) {
-			return "redirect:" + StartpageController.SIGN_IN;// redirect via javascript.
+			return "redirect:" + DelaultAddress.SIGN_IN;// redirect via javascript.
 		}
 		return rState.name();
 	}

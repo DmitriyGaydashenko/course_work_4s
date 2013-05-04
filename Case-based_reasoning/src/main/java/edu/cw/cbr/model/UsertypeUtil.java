@@ -30,4 +30,26 @@ public class UsertypeUtil {
 					userType.getUserTypeName());
 		return userTypeNames;
 	}
+	
+	/**
+	 * Returns <true> if instance of {@code Usertype} with identifier equals to
+	 * {@code id} exists.
+	 * @param id - instance's identifier.
+	 * @return <tt>true</tt> if instance of {@code Usertype} with identifier 
+	 * equals to {@code id} exists.
+	 */
+	public static boolean exist(int id) {
+		if (id < 0)
+			return false;
+		GenericDAO dao = new GenericDAO();
+		boolean succeeded = true;
+		try {
+			return dao.getEntityById(Usertype.class, id) != null;
+		} catch (SQLException e) {
+			succeeded = false;
+			e.printStackTrace();
+		}
+		dao.closeSession();
+		return succeeded;
+	}
 }

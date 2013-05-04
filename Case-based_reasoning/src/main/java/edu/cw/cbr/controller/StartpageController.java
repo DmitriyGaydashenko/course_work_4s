@@ -22,10 +22,6 @@ import edu.cw.cbr.model.UserUtil;
 public class StartpageController {
 	
 	/**
-	 * sign in page address
-	 */
-	public static final String SIGN_IN = "/signIn";
-	/**
 	 * Processes <tt>/</tt> request. If current user session is valid redirects
 	 * to @code {HOME_PAGE} else redirects to sign in page.
 	 * @param httpSession - HTTP session. 
@@ -35,7 +31,7 @@ public class StartpageController {
 	@RequestMapping(value = "/", method = RequestMethod.GET)
 	public String home(HttpSession httpSession) {
 		if (UserSession.isHttpSessionValid(httpSession))
-			return "redirect:" + PrecedentController.HOME_PAGE;
+			return "redirect:" + DelaultAddress.HOME_PAGE;
 		return "redirect:/signIn";
 	}
 	
