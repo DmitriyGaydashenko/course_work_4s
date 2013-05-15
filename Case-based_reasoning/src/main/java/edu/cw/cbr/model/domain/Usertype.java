@@ -1,4 +1,4 @@
-package edu.cw.cbr.domain;
+package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 

@@ -5,8 +5,9 @@ import javax.servlet.http.HttpSession;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import edu.cw.cbr.domain.Sysuser;
+import edu.cw.cbr.model.domain.Sysuser;
 
+// TODO: Auto-generated Javadoc
 /**
  * Provides a way to identify a user across more than one page request.
  * @author Dmitriy Gaydashenko
@@ -14,11 +15,9 @@ import edu.cw.cbr.domain.Sysuser;
  */
 public final class UserSession {
 	
-	/**
-	 * Name of attribute in HTTP session, which stores instance of 
-	 * {@code UserSession}
-	 */
+	/** Name of attribute in HTTP session, which stores instance of. {@code UserSession} */
 	public static final String U_SESSION_NAME = "userSession";
+	
 	/**
 	 * User's unique identifier.
 	 */
@@ -41,11 +40,11 @@ public final class UserSession {
 	private String IPAddress;
 	
 	/**
-	 * Constructs new user session with user's identifier - {@code id} 
+	 * Constructs new user session with user's identifier - {@code id}
 	 * and user's IP address - {@code IPAddress}.
-	 * @param user - instance of {@code Sysuser}, which represents the user 
+	 *
+	 * @param user - instance of {@code Sysuser}, which represents the user
 	 * whose session is created.
-	 * @param IPAddress - user's IP address.
 	 */
 	public UserSession(Sysuser user) {
 		this.userId = user.getUserId();
@@ -57,18 +56,40 @@ public final class UserSession {
 			    getRequest().getRemoteAddr();;
 	}
 	
+	
+	/**
+	 * Gets the id.
+	 *
+	 * @return the id
+	 */
 	public int getId() {
 		return userId;
 	}
 	
+	
+	/**
+	 * Gets the iP address.
+	 *
+	 * @return the iP address
+	 */
 	public String getIPAddress() {
 		return IPAddress;
 	}
 	
+	/**
+	 * Gets the user's first name.
+	 *
+	 * @return the user's first name
+	 */
 	public String getFName() {
 		return fName;
 	}
 
+	/**
+	 * Gets the user's last name.
+	 *
+	 * @return the user's last name
+	 */
 	public String getLName() {
 		return lName;
 	}

@@ -64,6 +64,6 @@ public class PrecedentController {
 	public @ResponseBody int getPrecedentsNum(HttpSession httpSession ) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
 		//return -1;
-		return PrecedentUtil.getPrecedentsNum();
+		return PrecedentUtil.getTotalNum();
 	}
 }

@@ -1,14 +1,18 @@
-package edu.cw.cbr.domain;
+/*
+ * 
+ */
+package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
 /**
@@ -16,7 +20,7 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "state", schema = "public")
-public class State{
+public class State extends Arrayable{
 
 	private int stateId;
 	private float cpuIdlingTime;
@@ -28,17 +32,33 @@ public class State{
 	public State() {
 	}
 
-	public State(int stateId, float cpuIdlingTime, float amountOfFreeMemory,
-			float batteryCharge, float downloadSpeed, float uploadSpeed) {
-		this.stateId = stateId;
-		this.cpuIdlingTime = cpuIdlingTime;
-		this.amountOfFreeMemory = amountOfFreeMemory;
-		this.batteryCharge = batteryCharge;
-		this.downloadSpeed = downloadSpeed;
-		this.uploadSpeed = uploadSpeed;
+	/**
+	 * Creates new instance of  {@code State}.
+	 *
+	 * @param cpuIdlingTime - idling time of CPU(%).
+	 * @param freeMemory - amount of free memory (GB).
+	 * @param batteryCharge - battery charge(mAh).
+	 * @param downloadSpeed - downloading speed(GT/s).
+	 * @param uploadSpeed - uploading speed(GT/s).
+	 * @throws IllegalArgumentException if cpuIdlingTime is less than 0 or more
+	 * than 100, freeMemory or batteryCharge,  or downloadSpeed, or uploadSpeed
+	 * is less than 0.
+	 */
+	public State(float cpuIdlingTime, float freeMemory,
+			float batteryCharge, float downloadSpeed, float uploadSpeed)
+					throws IllegalArgumentException {
+		if((cpuIdlingTime < 0 || cpuIdlingTime > 100)|| freeMemory < 0
+				|| batteryCharge < 0 || downloadSpeed < 0 || uploadSpeed < 0)
+			throw new IllegalArgumentException();
+		this.setAmountOfFreeMemory(freeMemory);
+		this.setBatteryCharge(batteryCharge);
+		this.setCpuIdlingTime(cpuIdlingTime);
+		this.setDownloadSpeed(downloadSpeed);
+		this.setUploadSpeed(uploadSpeed);
 	}
 
 	@Id
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	@Column(name = "state_id", unique = true, nullable = false)
 	public int getStateId() {
 		return this.stateId;
@@ -91,6 +111,18 @@ public class State{
 
 	public void setUploadSpeed(float uploadSpeed) {
 		this.uploadSpeed = uploadSpeed;
+	}
+
+	@Override
+	protected List<Object> toList() {
+		List<Object> instLData = new ArrayList<Object>();
+		instLData.add(this.getStateId());
+		instLData.add(this.getCpuIdlingTime());
+		instLData.add(this.getAmountOfFreeMemory());
+		instLData.add(this.getBatteryCharge());
+		instLData.add(this.getDownloadSpeed());
+		instLData.add(this.getUploadSpeed());
+		return instLData;
 	}
 
 }

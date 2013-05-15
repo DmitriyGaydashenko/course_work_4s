@@ -5,7 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import edu.cw.cbr.domain.Usertype;
+import edu.cw.cbr.model.dao.GenericDAO;
+import edu.cw.cbr.model.domain.Usertype;
 
 /**
  * The class {@code UsertypeUtil} contains methods for performing basic
@@ -13,15 +14,19 @@ import edu.cw.cbr.domain.Usertype;
  * @author Dmitriy Gaydashenko
  *
  */
-public class UsertypeUtil {
+public class UsertypeUtil extends GenericUtil<Usertype>{
+
+	public UsertypeUtil() {
+		super(Usertype.class);
+	}
 
 	/**
 	 * Return map of usertype's Ids and names.
 	 * @return map of usertype's Ids and names.
 	 * @throws SQLException
 	 */
-	public static Map<Integer, String> getUsertypeNames() throws SQLException {
-		GenericDAO dao = new GenericDAO();
+	public Map<Integer, String> getUsertypeNames() throws SQLException {
+		GenericDAO<Usertype> dao = getNewDAO();
 		List<Usertype> userTypes = dao.getAllEntities(Usertype.class);
 		dao.closeSession();
 		Map<Integer, String> userTypeNames = new  HashMap<Integer, String>();
@@ -38,10 +43,10 @@ public class UsertypeUtil {
 	 * @return <tt>true</tt> if instance of {@code Usertype} with identifier 
 	 * equals to {@code id} exists.
 	 */
-	public static boolean exist(int id) {
+	public boolean exist(int id) {
 		if (id < 0)
 			return false;
-		GenericDAO dao = new GenericDAO();
+		GenericDAO<Usertype> dao = getNewDAO();
 		boolean succeeded = true;
 		try {
 			return dao.getEntityById(Usertype.class, id) != null;
@@ -51,5 +56,10 @@ public class UsertypeUtil {
 		}
 		dao.closeSession();
 		return succeeded;
+	}
+
+	@Override
+	protected GenericDAO<Usertype> getNewDAO() {
+		return new GenericDAO<Usertype>();
 	}
 }

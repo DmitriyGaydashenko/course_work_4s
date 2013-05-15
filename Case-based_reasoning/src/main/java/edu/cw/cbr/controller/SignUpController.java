@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import edu.cw.cbr.controller.security.UserSession;
-import edu.cw.cbr.model.UserUtil;
+import edu.cw.cbr.model.SysuserUtil;
 import edu.cw.cbr.model.UsertypeUtil;
 
 /**
@@ -37,7 +37,8 @@ public class SignUpController {
 		if (UserSession.isHttpSessionValid(httpSession))
 			return "redirect:" + DelaultAddress.HOME_PAGE;
 		try {
-			model.addAttribute("userTypes", UsertypeUtil.getUsertypeNames());
+			model.addAttribute("userTypes", new UsertypeUtil()
+														.getUsertypeNames());
 		} catch (SQLException e) {
 			model.addAttribute(MODEL_ERROR_ATT, INTERNAL_ERROR);
 			e.printStackTrace();
@@ -53,12 +54,12 @@ public class SignUpController {
 	 */
 	@RequestMapping(value = "/signUp/validEmail", method = RequestMethod.POST)
 	public @ResponseBody String isEmailValid(@RequestParam String email) {
-		return UserUtil.isEmailValid(email)+"";
+		return SysuserUtil.isEmailValid(email)+"";
 	}
 	
 	/**
 	 * Processes <tt>/signUp POST</tt> request. If user is valid, adds to the 
-	 * database and returns {@code UserUtil.RegistrationState.SUCCESS}, else
+	 * database and returns {@code SysuserUtil.RegistrationState.SUCCESS}, else
 	 * adds model attribute, which describes error, returns registration state.
 	 * @param model - model of the requesting page.
 	 * @param fName - user's first name.
@@ -72,10 +73,11 @@ public class SignUpController {
 	public @ResponseBody String signUp(Model model, @RequestParam String fName,
 			@RequestParam String lName, @RequestParam String email,
 			@RequestParam String password, @RequestParam int usertypeId) {
-		UserUtil.RegistrationState rState = null;
-		rState = UserUtil.addNewUser(fName, lName, email, password,
+		SysuserUtil.RegistrationState rState = null;
+		SysuserUtil util = new SysuserUtil();
+		rState = util.addNewUser(fName, lName, email, password,
 				usertypeId);
-		if (rState == UserUtil.RegistrationState.SUCCESS) {
+		if (rState == SysuserUtil.RegistrationState.SUCCESS) {
 			return "redirect:" + DelaultAddress.SIGN_IN;// redirect via javascript.
 		}
 		return rState.name();

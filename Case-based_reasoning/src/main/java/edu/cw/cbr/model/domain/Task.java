@@ -1,16 +1,14 @@
-package edu.cw.cbr.domain;
+package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
 /**
@@ -18,7 +16,7 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "task", schema = "public")
-public class Task{
+public class Task extends Arrayable{
 
 	private int taskId;
 	private float computationalComplexity;
@@ -30,6 +28,29 @@ public class Task{
 	public Task() {
 	}
 
+	/**
+	 * Creates new instance of  {@code Task}.
+	 *
+	 * @param complex - computational complexity of application.
+	 * @param memoryNeed - memory requirements.
+	 * @param dataToDown - amount of downloading data.
+	 * @param dataToUp - amount of uploading data.
+	 * @param timeReq - running time requirements.
+	 * @throws IllegalArgumentException if complex or memoryNeed, or dataToDown,
+	 * or dataToUp, or timeReq is less than zero.
+	 */
+	public Task (float complex, float memoryNeed,
+			float dataToDown, float dataToUp, float timeReq)
+					throws IllegalArgumentException{
+		if(complex < 0 || memoryNeed < 0 || dataToDown < 0 || dataToUp < 0
+				|| timeReq < 0)
+			throw new IllegalArgumentException();
+		this.setComputationalComplexity(complex);
+		this.setAmountOfMemory(memoryNeed);
+		this.setDownloadingAmountOfData(dataToDown);
+		this.setUploadingAmountOfData(dataToUp);
+		this.setMaxRunningTime(timeReq);
+	}
 	public Task(int taskId, float computationalComplexity,
 			float amountOfMemory, float downloadingAmountOfData,
 			float uploadingAmountOfData, float maxRunningTime) {
@@ -95,6 +116,18 @@ public class Task{
 
 	public void setMaxRunningTime(float maxRunningTime) {
 		this.maxRunningTime = maxRunningTime;
+	}
+
+	@Override
+	protected List<Object> toList() {
+		List<Object> instLData = new ArrayList<Object>();
+		instLData.add(this.getTaskId());
+		instLData.add(this.getComputationalComplexity());
+		instLData.add(this.getAmountOfMemory());
+		instLData.add(this.getDownloadingAmountOfData());
+		instLData.add(this.getUploadingAmountOfData());
+		instLData.add(this.getMaxRunningTime());
+		return instLData;
 	}
 
 }

@@ -1,10 +1,12 @@
-package edu.cw.cbr.domain;
+package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
@@ -32,6 +34,7 @@ public class DeviceHardwareComponent{
 	}
 
 	@Id
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	@Column(name = "component_id", unique = true, nullable = false)
 	public int getComponentId() {
 		return this.componentId;

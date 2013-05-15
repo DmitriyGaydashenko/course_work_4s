@@ -9,21 +9,21 @@
    <property name="hibernate.connection.password">112581</property>
    <property name="hibernate.connection.driver_class">org.postgresql.Driver</property> 
    <property name="hibernate.show_sql">true</property>
-   <mapping class="edu.cw.cbr.domain.Battery"/>
-   <mapping class="edu.cw.cbr.domain.Developer"/>
-   <mapping class="edu.cw.cbr.domain.Device"/>
-   <mapping class="edu.cw.cbr.domain.DeviceHardwareComponent"/>
-   <mapping class="edu.cw.cbr.domain.DeviceState"/>
-   <mapping class="edu.cw.cbr.domain.HardwareComponent"/>
-   <mapping class="edu.cw.cbr.domain.HardwareComponentfamily"/>
-   <mapping class="edu.cw.cbr.domain.HardwareComponentType"/>
-   <mapping class="edu.cw.cbr.domain.MemoryModule"/>
-   <mapping class="edu.cw.cbr.domain.NetworkAdapter"/>
-   <mapping class="edu.cw.cbr.domain.Precedent"/>
-   <mapping class="edu.cw.cbr.domain.Processor"/>
-   <mapping class="edu.cw.cbr.domain.State"/>
-   <mapping class="edu.cw.cbr.domain.Sysuser"/>
-   <mapping class="edu.cw.cbr.domain.Task"/>
-   <mapping class="edu.cw.cbr.domain.Usertype"/>
+   <mapping class="edu.cw.cbr.model.domain.Battery"/>
+   <mapping class="edu.cw.cbr.model.domain.Developer"/>
+   <mapping class="edu.cw.cbr.model.domain.Device"/>
+   <mapping class="edu.cw.cbr.model.domain.DeviceHardwareComponent"/>
+   <mapping class="edu.cw.cbr.model.domain.DeviceState"/>
+   <mapping class="edu.cw.cbr.model.domain.HardwareComponent"/>
+   <mapping class="edu.cw.cbr.model.domain.HardwareComponentFamily"/>
+   <mapping class="edu.cw.cbr.model.domain.HardwareComponentType"/>
+   <mapping class="edu.cw.cbr.model.domain.MemoryModule"/>
+   <mapping class="edu.cw.cbr.model.domain.NetworkAdapter"/>
+   <mapping class="edu.cw.cbr.model.domain.Precedent"/>
+   <mapping class="edu.cw.cbr.model.domain.Processor"/>
+   <mapping class="edu.cw.cbr.model.domain.State"/>
+   <mapping class="edu.cw.cbr.model.domain.Sysuser"/>
+   <mapping class="edu.cw.cbr.model.domain.Task"/>
+   <mapping class="edu.cw.cbr.model.domain.Usertype"/>
   </session-factory>
 </hibernate-configuration>

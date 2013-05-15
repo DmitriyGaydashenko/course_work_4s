@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import edu.cw.cbr.controller.security.UserSession;
-import edu.cw.cbr.domain.Sysuser;
-import edu.cw.cbr.model.UserUtil;
+import edu.cw.cbr.model.SysuserUtil;
+import edu.cw.cbr.model.domain.Sysuser;
 
 /**
  * Provides methods that response on requests such as <tt>/</tt> and 
@@ -58,9 +58,9 @@ public class StartpageController {
 	@RequestMapping(value = "/signIn", method = RequestMethod.POST)
 	public @ResponseBody String signIn(HttpSession session, 
 			@RequestParam String email, @RequestParam String password) {
-		Sysuser user = UserUtil.getSysuser(email, password);
-		UserUtil.UserState userState = UserUtil.getUserState(user);
-		if (userState == UserUtil.UserState.IS_VALID) {
+		Sysuser user = new SysuserUtil().getSysuser(email, password);
+		Sysuser.UserState userState = Sysuser.getUserState(user);
+		if (userState == Sysuser.UserState.IS_VALID) {
 			session.setAttribute("userSession", 
 					new UserSession(user));
 			return "redirect:Home";// redirect via javascript.

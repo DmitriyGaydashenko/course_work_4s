@@ -2,8 +2,9 @@ package edu.cw.cbr.model;
 
 import java.util.List;
 
-import edu.cw.cbr.domain.Precedent;
-import edu.cw.cbr.domain.Task;
+import edu.cw.cbr.model.dao.GenericDAO;
+import edu.cw.cbr.model.domain.Precedent;
+import edu.cw.cbr.model.domain.Task;
 
 /**
  * The class {@code PrecedentUtil} contains methods for performing basic
@@ -11,7 +12,7 @@ import edu.cw.cbr.domain.Task;
  * @author Dmitriy Gaydashenko
  *
  */
-public class PrecedentUtil {
+public class PrecedentUtil {//extends TableAble{
 	
 	/**
 	 * Number of precedent's attributes available for users.
@@ -37,9 +38,9 @@ public class PrecedentUtil {
 			precedents[i][1] = task.getTaskId();
 			precedents[i][2] = lprecedents.get(i).getDevicestate().getState().getStateId();
 			precedents[i][3] = lprecedents.get(i).getDevicestate().getDevice().getDeviceId();
-			precedents[i][4] = lprecedents.get(i).getTimeToSolve() <=
-					task.getMaxRunningTime();/* set if application satisfies 
-											running time requirements.*/
+			//precedents[i][4] = lprecedents.get(i).getTimeToSolve() <=
+					//task.getMaxRunningTime(); set if application satisfies 
+											//running time requirements.
 			precedents[i][5] = lprecedents.get(i).isSolvedCorrectly();
 		}
 		dao.closeSession();
@@ -50,10 +51,8 @@ public class PrecedentUtil {
 	 * Returns total number of precedents.
 	 * @return - total number of precedents;
 	 */
-	public static int getPrecedentsNum() {
-		GenericDAO dao = new GenericDAO();
-		int num = dao.count(Precedent.class);
-		dao.closeSession();
-		return num;
+	public static int getTotalNum() {
+		return 0;
+		//return getTotalNum(Precedent.class);
 	}
 }

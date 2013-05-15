@@ -1,4 +1,4 @@
-package edu.cw.cbr.model;
+package edu.cw.cbr.model.dao;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -22,7 +22,8 @@ import org.hibernate.service.ServiceRegistryBuilder;
  * @author Dmitriy Gaydashenko
  *
  */
-@Repository @Service class GenericDAO {
+@Repository @Service
+public class GenericDAO<T> {
 	
 	 protected Session session;
 	 private static final Logger logger = 
@@ -87,7 +88,7 @@ import org.hibernate.service.ServiceRegistryBuilder;
      * @throws SQLException
      * @see org.hibernate.Session.save(Object arg0)
      */
-	public <Entity> void addEntity(Entity entity) throws SQLException {
+	public void addEntity(T entity) throws SQLException {
 		session.save(entity);
 	}
 	
@@ -98,7 +99,7 @@ import org.hibernate.service.ServiceRegistryBuilder;
 	 * @throws SQLException
      * @see org.hibernate.Session.update(Object arg0)
 	 */
-	public <Entity> void updateEntity(Entity entity) throws SQLException {
+	public void updateEntity(T entity) throws SQLException {
 		session.update(entity);
 	}
 
@@ -111,12 +112,11 @@ import org.hibernate.service.ServiceRegistryBuilder;
 	 * @throws SQLException
 	 * @see org.hibernate.Session.get(Class theClass, Serializable id)
 	 */
-	public <T> T getEntityById(Class<T> entityClass,
+	public T getEntityById(Class<T> entityClass,
 			int id) throws SQLException {
 	    return entityClass.cast(session.get(entityClass, id));
 	}
 	
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	/**
 	 * Return all persistent instances of the given entity class.
 	 * @param entityClass a persistent class
@@ -124,9 +124,10 @@ import org.hibernate.service.ServiceRegistryBuilder;
 	 * @throws SQLException
 	 * @see org.hibernate.Session.createCriteria(Class persistentClass)
 	 */
-	public <Entity> List<Entity> getAllEntities(Class entityClass) 
+	@SuppressWarnings("unchecked")
+	public List<T> getAllEntities(Class<T> entityClass) 
 			throws SQLException {
-		return (List<Entity>) session.createCriteria(entityClass).list();
+		return (List<T>) session.createCriteria(entityClass).list();
 	}
 	
 	/**
@@ -135,7 +136,7 @@ import org.hibernate.service.ServiceRegistryBuilder;
 	 * @entityClass - class of deleting instance.
 	 * @throws SQLException
 	 */
-	public <T> void deleteEntity(Class<T> entityClass, int id) throws SQLException {
+	public void deleteEntity(Class<T> entityClass, int id) throws SQLException {
 		T entity = this.getEntityById(entityClass, id);
 		session.delete(entity);
 	}
@@ -175,16 +176,6 @@ import org.hibernate.service.ServiceRegistryBuilder;
 	}
 	
 	/**
-	 * Return result of passed function execution.
-	 * @param function - function to run.
-	 * @return result of passed function execution.
-	 * @throws SQLException
-	 */
-	/*public Object runStoredFunction(String function) throws SQLException {
-		return this.session.createSQLQuery("SELECT "+function).list();
-	}*/
-	
-	/**
 	 * Returns first {@code max} instances of {@code cl} starting from 
 	 * {@code from} in order specified by {@code orderBy} and {@code asc}.
 	 * @param cl - a persistent class.
@@ -195,10 +186,10 @@ import org.hibernate.service.ServiceRegistryBuilder;
 	 * @return list of first {@code max} entities, starting from {@code from}.
 	 */
 	@SuppressWarnings("unchecked")
-	public <Entity> List<Entity> getEntities(Class<Entity> cl, int from,
+	public List<T> getEntities(Class<T> cl, int from,
 			int max, String orderBy, boolean asc) {
 		Order order = asc ? Order.asc(orderBy) : Order.desc(orderBy);
-		return (List<Entity>)session.createCriteria(cl).addOrder(order)
+		return (List<T>)session.createCriteria(cl).addOrder(order)
 				.setFirstResult(from).setMaxResults(max).list();
 	}
 	
@@ -207,7 +198,7 @@ import org.hibernate.service.ServiceRegistryBuilder;
 	 * @param cl - a persistent class.
 	 * @return  number of all entities of {@code cl}.
 	 */
-	public <Entity> int count(Class<Entity> cl) {
+	public int count(Class<T> cl) {
 		return ((Long)session.createCriteria(cl)
 				.setProjection(Projections.rowCount()).list().get(0))
 				.intValue();

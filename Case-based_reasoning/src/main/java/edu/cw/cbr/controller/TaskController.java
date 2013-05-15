@@ -1,7 +1,5 @@
 package edu.cw.cbr.controller;
 
-import java.util.Map;
-
 import javax.servlet.http.HttpSession;
 
 import org.springframework.stereotype.Controller;
@@ -9,9 +7,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-
 import edu.cw.cbr.model.TaskUtil;
+import edu.cw.cbr.model.domain.Task;
 
 /**
  * Provides methods that response on requests for creating, editing and 
@@ -19,8 +16,19 @@ import edu.cw.cbr.model.TaskUtil;
  * @author Dmitriy Gaydashenko
  */
 @Controller
-public class TaskController {
+@RequestMapping("/tasks")
+public class TaskController extends ConnectedController<Task>{
 	
+	/**
+	 * Instantiates a new processor controller, which provides methods to 
+	 * process requests to instances of {@code Task}.
+	 */
+	public TaskController() {
+		super(new TaskUtil(), "tasks",
+				"/tasks/");
+	}
+
+
 	/**
 	 * Processes <tt>/tasks</tt> request. If {@code httpSession} is valid 
 	 * returns view of {@code Task} else returns view of 
@@ -30,44 +38,13 @@ public class TaskController {
 	 * defines a holder for model attributes.
 	 * @return - view, which corresponds to request.
 	 */
-	@RequestMapping(value = "/tasks", method = RequestMethod.GET)
+	@RequestMapping(value = "/", method = RequestMethod.GET)
 	public String home(HttpSession httpSession, Model model) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
 			//return "redirect:" + StartpageController.SIGN_IN;
 		//UserInfController.mapUserInf(model, (UserSession)httpSession.
 				//getAttribute(UserSession.U_SESSION_NAME));
-		return "/tasks";
-	}
-	
-	/**
-	 * Processes <tt>/gettask</tt> request. If {@code httpSession} is 
-	 * valid returns data for first {@code max} tasks starting from 
-	 * task with number {@code from}, else return <tt>null</tt> 
-	 * @param httpSession - HTTP session. 
-	 * @param from - starting point.
-	 * @param max - max amount of elements returned.
-	 * @return {@code max} tasks, starting from {@code from} if 
-	 * user's session is valid, else null.
-	 */
-	@RequestMapping(value = "/gettask", method = RequestMethod.POST)
-	public @ResponseBody Object[][] getTasks(HttpSession httpSession, int from,
-			int max) {
-		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return null;
-		return TaskUtil.getTasks(from, max);
-	}
-	
-	/**
-	 * Processes <tt>/gettaskNum</tt> request. If {@code httpSession} is 
-	 * valid returns total number of tasks, else return -1. 
-	 * @param httpSession - HTTP session. 
-	 * @return number of tasks, else -1.
-	 */
-	@RequestMapping(value = "/gettaskNum", method = RequestMethod.POST)
-	public @ResponseBody int getTasksNum(HttpSession httpSession) {
-		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return -1;
-		return TaskUtil.getTasksNum();
+		return MAPPED_CLASS_VIEW;
 	}
 	
 	/**
@@ -85,64 +62,28 @@ public class TaskController {
 	 * @param timeReq - running time requirements.
 	 * @return - view, which corresponds to request.
 	 */
-	@RequestMapping(value = "/addTask", method = RequestMethod.POST)
+	@RequestMapping(value = "/add", method = RequestMethod.POST)
 	public String add(HttpSession httpSession, Model model, 
 			@RequestParam float complex, @RequestParam float memoryNeed,
 			@RequestParam float dataToDown, @RequestParam float dataToUp,
 			@RequestParam float timeReq) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
 		//return "redirect:" + StartpageController.SIGN_IN;
-		if(!TaskUtil.addNewTask(complex, memoryNeed, dataToDown, dataToUp,
-				timeReq))
-			model.addAttribute("Error", "Error. Task is invalid.");
-		return "redirect:/tasks";
-	}
-	
-	/**
-	 * Processes <tt>/deletetask</tt> request. If {@code httpSession} is valid 
-	 * tries to delete instance of {@code Task} with identifier {@code rowId}.
-	 * If deletion did not succeeded adds to model error message.
-	 * @param model - instance of class, which implements interface that 
-	 * defines a holder for model attributes.
-	 * @param rowId - {@code Task} instance's id to be deleted.
-	 */
-	@RequestMapping(value = "/deletetask", method = RequestMethod.POST)
-	public@ResponseBody void remove(Model model, int rowId) {
-		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return;
-		if(!TaskUtil.deleteTask(rowId));
-			model.addAttribute("Error", "Error. Can not delete this task.");
-	}
-	
-	/**
-	 * Processes <tt>/deptask</tt> request. If {@code httpSession} is valid 
-	 * returns map of {@code Task}'s instance, with identifier equals to 
-	 * {@code rowId}, dependent informational relations' names and it's number,
-	 * else returns <tt>null</tt>.
-	 * @param model - instance of class, which implements interface that 
-	 * defines a holder for model attributes.
-	 * @param rowId - identifier of instance of {@code Task}, for which 
-	 * dependent entities will be found.
-	 * @return if {@code httpSession} is valid returns map of dependent 
-	 * informational relations' names and it's number, else returns 
-	 * <tt>null</tt>.
-	 */
-	@RequestMapping(value = "/deptask", method = RequestMethod.POST)
-	public@ResponseBody Map<String, Integer> getDependentPrecedentsNum(
-			Model model, int rowId) {
-		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return;
-		return TaskUtil.getDependentEntitiesNum(rowId);
+		if(!((TaskUtil) UTIL).addNewTask(complex, memoryNeed, dataToDown,
+				dataToUp, timeReq))
+			model.addAttribute(Error.ADD.getFlag(), Error.ADD.getMessage());
+		return "redirect:" + INDEX;
 	}
 
 	/**
-	 * Processes <tt>/addTask</tt> request. If user's session is valid 
-	 * tries to add new instance of {@code Task}, if did not succeeded, 
+	 * Processes <tt>/update</tt> request. If user's session is valid 
+	 * tries to update instance of {@code Task}, if did not succeeded, 
 	 * adds error message to the model, returns view of {@code Task} else 
 	 * returns view of {@code DelaultAddress.SIGN_IN} page.
 	 * @param httpSession - HTTP session.
 	 * @param model - instance of class, which implements interface that 
 	 * defines a holder for model attributes.
+	 * @taskId - identifier of instance of {@code Task} to be updated.
 	 * @param complex - computational complexity of application. 
 	 * @param memoryNeed - memory requirements.
 	 * @param dataToDown - amount of downloading data.
@@ -150,15 +91,16 @@ public class TaskController {
 	 * @param timeReq - running time requirements.
 	 * @return - view, which corresponds to request.
 	 */
-	@RequestMapping(value = "/updatetask", method = RequestMethod.POST)
+	@RequestMapping(value = "/update", method = RequestMethod.POST)
 	public String updateTask(HttpSession httpSession, Model model,
 			@RequestParam int taskId, @RequestParam float complex, 
 			@RequestParam float memoryNeed,	@RequestParam float dataToDown,
 			@RequestParam float dataToUp, @RequestParam float timeReq) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
 		//return "redirect:" + StartpageController.SIGN_IN;
-		if(!TaskUtil.updateTask(taskId, complex, memoryNeed, dataToDown, dataToUp, timeReq))
-			model.addAttribute("UpdateError", "Error! Task is invalid.");
-		return "/tasks";
+		if(!((TaskUtil) UTIL).updateTask(taskId, complex, memoryNeed,
+				dataToDown, dataToUp, timeReq))
+			model.addAttribute(Error.UPDATE.getFlag(), Error.UPDATE.getMessage());
+		return "redirect:" + INDEX;
 	}
 }

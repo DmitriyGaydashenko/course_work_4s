@@ -1,14 +1,15 @@
-package edu.cw.cbr.domain;
+package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
 /**
@@ -16,20 +17,23 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "developer", schema = "public")
-public class Developer{
+public class Developer extends Arrayable{
 
 	private int developerId;
 	private String developerName;
 
-	public Developer() {
+	public Developer(){
 	}
 
-	public Developer(int developerId, String developerName) {
-		this.developerId = developerId;
+	public Developer(String developerName)
+			throws IllegalArgumentException{
+		if (developerName.isEmpty())
+			throw new IllegalArgumentException();
 		this.developerName = developerName;
 	}
 
 	@Id
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	@Column(name = "developer_id", unique = true, nullable = false)
 	public int getDeveloperId() {
 		return this.developerId;
@@ -46,6 +50,14 @@ public class Developer{
 
 	public void setDeveloperName(String developerName) {
 		this.developerName = developerName;
+	}
+
+	@Override
+	protected List<Object> toList() {
+		List<Object> instDataList = new ArrayList<Object>();
+		instDataList.add(this.getDeveloperId());
+		instDataList.add(this.getDeveloperName());
+		return instDataList;
 	}
 
 }

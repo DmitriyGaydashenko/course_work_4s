@@ -1,14 +1,12 @@
-package edu.cw.cbr.domain;
+package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 
-import java.util.HashSet;
-import java.util.Set;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
 /**
@@ -20,8 +18,6 @@ public class HardwareComponentType{
 
 	private int hardwareComponentTypeId;
 	private String hardwareComponentTypeName;
-	private Set<HardwareComponentfamily> hardwareComponentfamilies = new HashSet<HardwareComponentfamily>(
-			0);
 
 	public HardwareComponentType() {
 	}
@@ -32,15 +28,8 @@ public class HardwareComponentType{
 		this.hardwareComponentTypeName = hardwareComponentTypeName;
 	}
 
-	public HardwareComponentType(int hardwareComponentTypeId,
-			String hardwareComponentTypeName,
-			Set<HardwareComponentfamily> hardwareComponentfamilies) {
-		this.hardwareComponentTypeId = hardwareComponentTypeId;
-		this.hardwareComponentTypeName = hardwareComponentTypeName;
-		this.hardwareComponentfamilies = hardwareComponentfamilies;
-	}
-
 	@Id
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	@Column(name = "hardware_component_type_id", unique = true, nullable = false)
 	public int getHardwareComponentTypeId() {
 		return this.hardwareComponentTypeId;
@@ -57,16 +46,6 @@ public class HardwareComponentType{
 
 	public void setHardwareComponentTypeName(String hardwareComponentTypeName) {
 		this.hardwareComponentTypeName = hardwareComponentTypeName;
-	}
-
-	@OneToMany(fetch = FetchType.LAZY, mappedBy = "hardwarecomponenttype")
-	public Set<HardwareComponentfamily> getHardwarecomponentfamilies() {
-		return this.hardwareComponentfamilies;
-	}
-
-	public void setHardwarecomponentfamilies(
-			Set<HardwareComponentfamily> hardwareComponentfamilies) {
-		this.hardwareComponentfamilies = hardwareComponentfamilies;
 	}
 
 }
