@@ -32,7 +32,7 @@ public class TaskController extends ConnectedController<Task>{
 	/**
 	 * Processes <tt>/tasks</tt> request. If {@code httpSession} is valid 
 	 * returns view of {@code Task} else returns view of 
-	 * {@code DelaultAddress.SIGN_IN} page.
+	 * {@code DefaultAddress.SIGN_IN} page.
 	 * @param httpSession - HTTP session.
 	 * @param model - instance of class, which implements interface that 
 	 * defines a holder for model attributes.
@@ -41,7 +41,7 @@ public class TaskController extends ConnectedController<Task>{
 	@RequestMapping(value = "/", method = RequestMethod.GET)
 	public String home(HttpSession httpSession, Model model) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
-			//return "redirect:" + StartpageController.SIGN_IN;
+			//return "redirect:" + SignInController.SIGN_IN;
 		//UserInfController.mapUserInf(model, (UserSession)httpSession.
 				//getAttribute(UserSession.U_SESSION_NAME));
 		return MAPPED_CLASS_VIEW;
@@ -51,7 +51,7 @@ public class TaskController extends ConnectedController<Task>{
 	 * Processes <tt>/addTask</tt> request. If user's session is valid 
 	 * tries to add new instance of {@code Task}, if did not succeeded, 
 	 * adds error message to the model, returns view of {@code Task} else 
-	 * returns view of {@code DelaultAddress.SIGN_IN} page.
+	 * returns view of {@code DefaultAddress.SIGN_IN} page.
 	 * @param httpSession - HTTP session.
 	 * @param model - instance of class, which implements interface that 
 	 * defines a holder for model attributes.
@@ -68,7 +68,7 @@ public class TaskController extends ConnectedController<Task>{
 			@RequestParam float dataToDown, @RequestParam float dataToUp,
 			@RequestParam float timeReq) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return "redirect:" + StartpageController.SIGN_IN;
+		//return "redirect:" + SignInController.SIGN_IN;
 		if(!((TaskUtil) UTIL).addNewTask(complex, memoryNeed, dataToDown,
 				dataToUp, timeReq))
 			model.addAttribute(Error.ADD.getFlag(), Error.ADD.getMessage());
@@ -79,7 +79,7 @@ public class TaskController extends ConnectedController<Task>{
 	 * Processes <tt>/update</tt> request. If user's session is valid 
 	 * tries to update instance of {@code Task}, if did not succeeded, 
 	 * adds error message to the model, returns view of {@code Task} else 
-	 * returns view of {@code DelaultAddress.SIGN_IN} page.
+	 * returns view of {@code DefaultAddress.SIGN_IN} page.
 	 * @param httpSession - HTTP session.
 	 * @param model - instance of class, which implements interface that 
 	 * defines a holder for model attributes.
@@ -97,7 +97,7 @@ public class TaskController extends ConnectedController<Task>{
 			@RequestParam float memoryNeed,	@RequestParam float dataToDown,
 			@RequestParam float dataToUp, @RequestParam float timeReq) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return "redirect:" + StartpageController.SIGN_IN;
+		//return "redirect:" + SignInController.SIGN_IN;
 		if(!((TaskUtil) UTIL).updateTask(taskId, complex, memoryNeed,
 				dataToDown, dataToUp, timeReq))
 			model.addAttribute(Error.UPDATE.getFlag(), Error.UPDATE.getMessage());

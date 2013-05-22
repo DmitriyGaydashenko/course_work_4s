@@ -14,7 +14,6 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "processor", schema = "public")
-@PrimaryKeyJoinColumn(name="hardware_component_id")
 public class Processor extends HardwareComponent{
 
 	public final static int HARDWARE_TYPE = 2;

@@ -16,7 +16,7 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "task", schema = "public")
-public class Task extends Arrayable{
+public class Task extends ArrayAble{
 
 	private int taskId;
 	private float computationalComplexity;
@@ -119,7 +119,7 @@ public class Task extends Arrayable{
 	}
 
 	@Override
-	protected List<Object> toList() {
+	public List<Object> toList() {
 		List<Object> instLData = new ArrayList<Object>();
 		instLData.add(this.getTaskId());
 		instLData.add(this.getComputationalComplexity());

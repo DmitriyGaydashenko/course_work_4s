@@ -3,6 +3,7 @@ package edu.cw.cbr.controller;
 import javax.servlet.http.HttpSession;
 
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,20 +20,13 @@ import edu.cw.cbr.model.domain.Sysuser;
  *
  */
 @Controller
-public class StartpageController {
+public class SignInController implements IController{
 	
-	/**
-	 * Processes <tt>/</tt> request. If current user session is valid redirects
-	 * to @code {HOME_PAGE} else redirects to sign in page.
-	 * @param httpSession - HTTP session. 
-	 * (@see javax.servlet.http.HttpSession)
-	 * @return view, which corresponds to request.
-	 */
-	@RequestMapping(value = "/", method = RequestMethod.GET)
-	public String home(HttpSession httpSession) {
+	@Override
+	public String home(HttpSession httpSession, Model model) {
 		if (UserSession.isHttpSessionValid(httpSession))
-			return "redirect:" + DelaultAddress.HOME_PAGE;
-		return "redirect:/signIn";
+			return "redirect:" + HOME_PAGE;
+		return "redirect:" + SIGN_IN;
 	}
 	
 	/**
@@ -42,7 +36,7 @@ public class StartpageController {
 	 */
 	@RequestMapping(value = "/signIn", method = RequestMethod.GET)
 	public String signIn() {
-		return "/signIn";
+		return SIGN_IN;
 	}
 	
 	/**
@@ -56,15 +50,21 @@ public class StartpageController {
 	 * @return user's state or redirection request.
 	 */
 	@RequestMapping(value = "/signIn", method = RequestMethod.POST)
-	public @ResponseBody String signIn(HttpSession session, 
+	public String signIn(Model model, HttpSession session, 
 			@RequestParam String email, @RequestParam String password) {
 		Sysuser user = new SysuserUtil().getSysuser(email, password);
 		Sysuser.UserState userState = Sysuser.getUserState(user);
 		if (userState == Sysuser.UserState.IS_VALID) {
 			session.setAttribute("userSession", 
 					new UserSession(user));
-			return "redirect:Home";// redirect via javascript.
+			return "redirect:" + HOME_PAGE;
 		}
-		return userState.name();
+		String message = "";
+		if (userState == Sysuser.UserState.NOT_VERIFIED)
+			message = "This account is not verified.";
+		else if (userState == Sysuser.UserState.NOT_EXISTS)
+			message = "User with this email and password does not exist.";
+		model.addAttribute("Error", message);
+		return SIGN_IN;
 	}
 }

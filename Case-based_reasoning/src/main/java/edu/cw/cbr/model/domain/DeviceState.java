@@ -2,6 +2,9 @@ package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -19,19 +22,17 @@ import javax.persistence.UniqueConstraint;
 @Entity
 @Table(name = "devicestate", schema = "public", uniqueConstraints = @UniqueConstraint(columnNames = {
 		"state_id", "device_id" }))
-public class DeviceState{
+public class DeviceState extends ArrayAble{
 
 	private int deviceStateId;
 	private State state;
-	private Device device;
-
+	private DeviceHardwareComponentData deviceData;
 	public DeviceState() {
 	}
 
-	public DeviceState(int deviceStateId, State state, Device device) {
-		this.deviceStateId = deviceStateId;
+	public DeviceState(State state, DeviceHardwareComponentData deviceData) {
 		this.state = state;
-		this.device = device;
+		this.deviceData = deviceData;
 	}
 
 	@Id
@@ -57,12 +58,36 @@ public class DeviceState{
 
 	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "device_id", nullable = false)
-	public Device getDevice() {
-		return this.device;
+	public DeviceHardwareComponentData getDeviceData() {
+		return deviceData;
 	}
 
-	public void setDevice(Device device) {
-		this.device = device;
+	public void setDeviceData(DeviceHardwareComponentData deviceData) {
+		this.deviceData = deviceData;
+	}
+
+	@Override
+	public List<Object> toList() {
+		List<Object> lData = new ArrayList<Object>();
+		lData.add(this.getDeviceStateId());
+		lData.add(deviceData.getDeviceId());
+		lData.add(state.getStateId());
+		lData.add(deviceData.getDeveloper().getDeveloperName());
+		lData.add(deviceData.getDeviceName());
+		lData.add(deviceData.getCoresNum());
+		lData.add(deviceData.getCacheSize());
+		lData.add(deviceData.getClockSpeed());
+		lData.add(deviceData.getTransferOnMemory());
+		lData.add(state.getCpuIdlingTime());
+		lData.add(state.getAmountOfFreeMemory());
+		lData.add(state.getAmountOfFreeMemory()/deviceData.getAmountOfMemory()*100);
+		lData.add(state.getDownloadSpeed());
+		lData.add(state.getDownloadSpeed()/deviceData.getNetworkMaxSpeed()*100);
+		lData.add(state.getUploadSpeed());
+		lData.add(state.getUploadSpeed()/deviceData.getNetworkMaxSpeed()*100);
+		lData.add(state.getBatteryCharge());
+		lData.add(state.getBatteryCharge()/deviceData.getBatteryCapacity()*100);
+		return lData;
 	}
 
 }

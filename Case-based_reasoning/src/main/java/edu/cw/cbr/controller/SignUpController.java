@@ -19,11 +19,7 @@ import edu.cw.cbr.model.UsertypeUtil;
  * @author Dmitriy Gaydashenko
  */
 @Controller
-public class SignUpController {
-		
-	private static final String INTERNAL_ERROR = "Internal error."+ 
-			"Please, try again.";
-	private static final String MODEL_ERROR_ATT = "Error";
+public class SignUpController implements IController{
 	
 	/**
 	 * Processes <tt>/signUp</tt> request. If current user session is valid 
@@ -35,12 +31,12 @@ public class SignUpController {
 	@RequestMapping(value = "/signUp", method = RequestMethod.GET)
 	public String home(HttpSession httpSession, Model model) {
 		if (UserSession.isHttpSessionValid(httpSession))
-			return "redirect:" + DelaultAddress.HOME_PAGE;
+			return "redirect:" + HOME_PAGE;
 		try {
 			model.addAttribute("userTypes", new UsertypeUtil()
 														.getUsertypeNames());
 		} catch (SQLException e) {
-			model.addAttribute(MODEL_ERROR_ATT, INTERNAL_ERROR);
+			model.addAttribute("Error", "Internal error.");
 			e.printStackTrace();
 		}
 		return "/signUp";
@@ -54,7 +50,7 @@ public class SignUpController {
 	 */
 	@RequestMapping(value = "/signUp/validEmail", method = RequestMethod.POST)
 	public @ResponseBody String isEmailValid(@RequestParam String email) {
-		return SysuserUtil.isEmailValid(email)+"";
+		return SysuserUtil.isEmailExists(email)+"";
 	}
 	
 	/**
@@ -70,7 +66,8 @@ public class SignUpController {
 	 * @return registration state.
 	 */
 	@RequestMapping(value = "/signUp", method = RequestMethod.POST)
-	public @ResponseBody String signUp(Model model, @RequestParam String fName,
+	public String signUp(HttpSession httpSession, Model model,
+			@RequestParam String fName,
 			@RequestParam String lName, @RequestParam String email,
 			@RequestParam String password, @RequestParam int usertypeId) {
 		SysuserUtil.RegistrationState rState = null;
@@ -78,9 +75,13 @@ public class SignUpController {
 		rState = util.addNewUser(fName, lName, email, password,
 				usertypeId);
 		if (rState == SysuserUtil.RegistrationState.SUCCESS) {
-			return "redirect:" + DelaultAddress.SIGN_IN;// redirect via javascript.
+			return "redirect:" + SIGN_IN;
 		}
-		return rState.name();
+		else if (rState == SysuserUtil.RegistrationState.EMAIL_EXISTS)
+			model.addAttribute("Error", "User with this email already exists");
+		else
+			model.addAttribute("Error", "Invalid parameter.");
+		return home(httpSession, model);
 	}
 
 }

@@ -20,8 +20,8 @@ public class PrecedentController {
 	
 	/**
 	 * Processes <tt>/precedents</tt> request. If {@code httpSession} is valid 
-	 * redirects to @code {DelaultAddress.HOME_PAGE} else returns view of 
-	 * {@code DelaultAddress.SIGN_IN} page.
+	 * redirects to @code {DefaultAddress.HOME_PAGE} else returns view of 
+	 * {@code DefaultAddress.SIGN_IN} page.
 	 * @param httpSession - HTTP session.
 	 * @param model - instance of class, which implements interface that 
 	 * defines a holder for model attributes
@@ -30,7 +30,7 @@ public class PrecedentController {
 	@RequestMapping(value = "/precedents", method = RequestMethod.GET)
 	public String home(HttpSession httpSession, Model model) {
 		//if (!UserSession.isHttpSessionValid(httpSession))
-			//return "redirect:" + StartpageController.SIGN_IN;
+			//return "redirect:" + SignInController.SIGN_IN;
 		//UserInfController.mapUserInf(model, (UserSession)httpSession.
 				//getAttribute(UserSession.U_SESSION_NAME));
 		return "/precedents";

@@ -16,7 +16,7 @@ import edu.cw.cbr.model.domain.Sysuser;
  * @author Dmitriy Gaydashenko
  *
  */
-public class SysuserUtil extends TableAble<Sysuser>{
+public class SysuserUtil extends GenericTableAble<Sysuser>{
 	
 	/**
 	 * Enumeration for registration's states.
@@ -68,7 +68,10 @@ public class SysuserUtil extends TableAble<Sysuser>{
 	 * equal to
 	 * {@code email, password} exists, else returns <tt>null</tt>.
 	 */
-	public Sysuser getSysuser(String email, String password) {
+	public Sysuser getSysuser(String email, String password)
+			throws IllegalArgumentException{
+		if(email.isEmpty() || password.isEmpty())
+			throw new IllegalArgumentException();
 		SysuserDAO dao = getNewDAO();
 		Sysuser user = dao.getSysuser(email, 
 				SecurityUtil.hashInput(password));
@@ -86,9 +89,9 @@ public class SysuserUtil extends TableAble<Sysuser>{
 	private RegistrationState userRegValidation(String fName, String lName,
 			String email, String password, int usertypeId) {
 		// check user's attributes
-		if(Sysuser.isValidParams(fName, lName, email, password, usertypeId))
+		if(!Sysuser.isValidParams(fName, lName, email, password, usertypeId))
 			return SysuserUtil.RegistrationState.INVALID_PARAM;
-		if (!isEmailValid(email))
+		if (!isEmailExists(email))
 			return RegistrationState.EMAIL_EXISTS;
 		return RegistrationState.SUCCESS;
 	}
@@ -99,7 +102,7 @@ public class SysuserUtil extends TableAble<Sysuser>{
 	 * @param email - user's email to be checked
 	 * @return - true if same email does not exist.
 	 */
-	public static boolean isEmailValid(String email) {
+	public static boolean isEmailExists(String email) {
 		SysuserUtil util = new SysuserUtil();
 		SysuserDAO dao = util.getNewDAO();
 		boolean exist = dao.emailExist(email);
@@ -127,7 +130,7 @@ public class SysuserUtil extends TableAble<Sysuser>{
 		if (rState == SysuserUtil.RegistrationState.SUCCESS) {
 			Sysuser user = Sysuser.unsafeSysuserFactory(fName, lName, email,
 					password, usertypeId);
-			GenericDAO<Sysuser> dao = new GenericDAO<Sysuser>();
+			SysuserDAO dao = getNewDAO();
 			try {
 				dao.addEntity(user);
 			} catch (SQLException e) {
@@ -139,14 +142,13 @@ public class SysuserUtil extends TableAble<Sysuser>{
 		return rState;
 	}
 	@Override
-	protected List<String> getAllCols() {
+	public List<String> getAllCols() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 	@Override
 	protected SysuserDAO getNewDAO() {
-		// TODO Auto-generated method stub
-		return null;
+		return new SysuserDAO();
 	}
 }
 
@@ -159,7 +161,7 @@ class SysuserDAO extends GenericDAO<Sysuser>{
 			"from Sysuser where email = '%s' and password = '%s'";
 	
 	public SysuserDAO() {
-		super();
+		super(Sysuser.class);
 	}
 	
 	/**

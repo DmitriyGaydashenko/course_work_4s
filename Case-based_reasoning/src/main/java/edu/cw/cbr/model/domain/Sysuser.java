@@ -24,7 +24,7 @@ import edu.cw.cbr.model.UsertypeUtil;
  */
 @Entity
 @Table(name = "sysuser", schema = "public", uniqueConstraints = @UniqueConstraint(columnNames = "email"))
-public class Sysuser extends Arrayable{
+public class Sysuser extends ArrayAble{
 	
 	/**
 	 * Enumeration of user's states.
@@ -162,7 +162,7 @@ public class Sysuser extends Arrayable{
 	}
 
 	@Override
-	protected List<Object> toList() {
+	public List<Object> toList() {
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -171,8 +171,7 @@ public class Sysuser extends Arrayable{
 			String email, String password, int usertypeId) {
 		boolean valid = !(fName.isEmpty() || lName.isEmpty() || email.isEmpty() ||
 				password.isEmpty());
-		UsertypeUtil typeUtil = new UsertypeUtil();
-		return valid && typeUtil.exist(usertypeId);
+		return valid && new UsertypeUtil().exist(usertypeId);
 	}
 
 }

@@ -1,6 +1,5 @@
 package edu.cw.cbr.model;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,22 +65,11 @@ public class TaskUtil extends ConnectedUtil<Task>{
 			return false;
 		}
 		task.setTaskId(taskId);
-		boolean succeeded = true;
-		TaskDAO dao = getNewDAO();
-		try {
-			dao.deleteDependentEntities(task.getTaskId());
-			dao.updateEntity(task);
-		} catch (SQLException e) {
-			succeeded = false;
-			dao.rollbackTransaction();
-			e.printStackTrace();
-		}
-		dao.closeSession();
-		return succeeded;
+		return this.update(task);
 	}
 
 	@Override
-	protected List<String> getAllCols() {
+	public List<String> getAllCols() {
 		List<String> columnsName = new ArrayList<String>();
 		columnsName.add("taskId");
 		columnsName.add("computationalComplexity");
@@ -109,13 +97,7 @@ class TaskDAO extends ConnectedDAO<Task>{
 		 * Name of stored function, which counts number of dependent instances of
 		 * {@code Precedent} from instance of {@code Task} with identifier equals
 		 * to passed parameter. 
-		 */TASK_DEP_PREC_NUM_F ("SELECT task_dep_prec_num(%d)", "Precedents"),
-		
-		 /**
-		 * Name of stored function, which deletes all dependent entities of 
-		 * particular instance of {@code Task} with identifier passed to function.
-		 */
-		 DELETE_TASK_DEP_PREC ("SELECT delete_task_dep_ent(%d)");
+		 */TASK_DEP_PREC_NUM_F ("SELECT task_dep_prec_num(%d)", "Precedents");
 		
 		private String func;
 		private String IRName;
@@ -137,14 +119,6 @@ class TaskDAO extends ConnectedDAO<Task>{
 			return new StoredFunction[]{TASK_DEP_PREC_NUM_F};
 		}
 		
-		/**
-		 * Return array of count functions names.
-		 * @return array of count functions names.
-		 */
-		public static StoredFunction[] getDeleteFunctions() {
-			return new StoredFunction[]{DELETE_TASK_DEP_PREC};
-		}
-		
 		@Override
 		public String getFunction() {
 			return this.func;
@@ -158,28 +132,12 @@ class TaskDAO extends ConnectedDAO<Task>{
 	}
 	
 	public TaskDAO() {
-		super();
+		super(Task.class);
 	}
 	
-	/**
-	 * Returns map of dependent informational relations' names and it's number.
-	 * @param taskId - identifier of instance of {@code Task}, for which 
-	 * dependent entities will be found.
-	 * @return map of dependent informational relations' names and it's number.
-	 */
+	@Override
 	public Map<String, Integer> getDependentEntitiesNum(int taskId) {
 		return getDependentEntitiesNum(taskId,
 				StoredFunction.getCountFunctions());
-	}
-	
-	/**
-	 * Tries to delete all dependent entities.
-	 * @param taskId - identifier of instance of {@code Task}, for which
-	 * dependent entities will be deleted.
-	 * @throws SQLException 
-	 */
-	public void deleteDependentEntities(int taskId) 
-			throws SQLException {
-		deleteDependentEntities(taskId, StoredFunction.getDeleteFunctions());
 	}
 }

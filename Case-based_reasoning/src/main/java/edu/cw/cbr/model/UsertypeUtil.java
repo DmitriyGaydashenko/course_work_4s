@@ -27,7 +27,7 @@ public class UsertypeUtil extends GenericUtil<Usertype>{
 	 */
 	public Map<Integer, String> getUsertypeNames() throws SQLException {
 		GenericDAO<Usertype> dao = getNewDAO();
-		List<Usertype> userTypes = dao.getAllEntities(Usertype.class);
+		List<Usertype> userTypes = dao.getAllEntities();
 		dao.closeSession();
 		Map<Integer, String> userTypeNames = new  HashMap<Integer, String>();
 		for(Usertype userType : userTypes)
@@ -49,7 +49,7 @@ public class UsertypeUtil extends GenericUtil<Usertype>{
 		GenericDAO<Usertype> dao = getNewDAO();
 		boolean succeeded = true;
 		try {
-			return dao.getEntityById(Usertype.class, id) != null;
+			return dao.getEntityById(id) != null;
 		} catch (SQLException e) {
 			succeeded = false;
 			e.printStackTrace();
@@ -60,6 +60,6 @@ public class UsertypeUtil extends GenericUtil<Usertype>{
 
 	@Override
 	protected GenericDAO<Usertype> getNewDAO() {
-		return new GenericDAO<Usertype>();
+		return new GenericDAO<Usertype>(CLASS);
 	}
 }

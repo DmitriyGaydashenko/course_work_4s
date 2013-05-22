@@ -5,7 +5,6 @@ package edu.cw.cbr.model.domain;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -26,7 +25,7 @@ import edu.cw.cbr.model.HardwareComponentFamilyUtil;
 @Entity
 @Inheritance(strategy = InheritanceType.JOINED)
 @Table(name = "hardwarecomponent", schema = "public")
-public class HardwareComponent extends Arrayable{
+public class HardwareComponent extends ArrayAble{
 
 	private int hardwareComponentId;
 	private HardwareComponentFamily hardwareComponentFamily;
@@ -57,7 +56,7 @@ public class HardwareComponent extends Arrayable{
 		this.setHardwareComponentFamily(hcFamily);
 		this.setHardwareComponentName(hcName);
 	}
-	
+
 	public HardwareComponent(int hardwareComponentId,
 			HardwareComponentFamily hardwareComponentFamily,
 			String hardwareComponentName) {

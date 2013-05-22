@@ -17,7 +17,7 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "developer", schema = "public")
-public class Developer extends Arrayable{
+public class Developer extends ArrayAble{
 
 	private int developerId;
 	private String developerName;
@@ -53,7 +53,7 @@ public class Developer extends Arrayable{
 	}
 
 	@Override
-	protected List<Object> toList() {
+	public List<Object> toList() {
 		List<Object> instDataList = new ArrayList<Object>();
 		instDataList.add(this.getDeveloperId());
 		instDataList.add(this.getDeveloperName());

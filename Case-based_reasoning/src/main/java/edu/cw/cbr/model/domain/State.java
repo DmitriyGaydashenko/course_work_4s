@@ -20,7 +20,7 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "state", schema = "public")
-public class State extends Arrayable{
+public class State extends ArrayAble{
 
 	private int stateId;
 	private float cpuIdlingTime;
@@ -114,7 +114,7 @@ public class State extends Arrayable{
 	}
 
 	@Override
-	protected List<Object> toList() {
+	public List<Object> toList() {
 		List<Object> instLData = new ArrayList<Object>();
 		instLData.add(this.getStateId());
 		instLData.add(this.getCpuIdlingTime());

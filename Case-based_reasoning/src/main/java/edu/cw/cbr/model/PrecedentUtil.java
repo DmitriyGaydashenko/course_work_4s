@@ -12,7 +12,7 @@ import edu.cw.cbr.model.domain.Task;
  * @author Dmitriy Gaydashenko
  *
  */
-public class PrecedentUtil {//extends TableAble{
+public class PrecedentUtil {//extends GenericTableAble{
 	
 	/**
 	 * Number of precedent's attributes available for users.
