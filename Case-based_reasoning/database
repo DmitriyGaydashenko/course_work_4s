@@ -1,0 +1,2755 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 9.2.4
+-- Dumped by pg_dump version 9.2.4
+-- Started on 2013-05-31 04:45:45
+
+SET statement_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+
+--
+-- TOC entry 2285 (class 1262 OID 16641)
+-- Name: course_work_cbr; Type: DATABASE; Schema: -; Owner: postgres
+--
+
+CREATE DATABASE course_work_cbr WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'Russian_Russia.1251' LC_CTYPE = 'Russian_Russia.1251';
+
+
+ALTER DATABASE course_work_cbr OWNER TO postgres;
+
+\connect course_work_cbr
+
+SET statement_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+
+--
+-- TOC entry 216 (class 3079 OID 11727)
+-- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+
+
+--
+-- TOC entry 2288 (class 0 OID 0)
+-- Dependencies: 216
+-- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+
+
+--
+-- TOC entry 217 (class 3079 OID 32840)
+-- Name: cube; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS cube WITH SCHEMA public;
+
+
+--
+-- TOC entry 2289 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: EXTENSION cube; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION cube IS 'data type for multidimensional cubes';
+
+
+SET search_path = public, pg_catalog;
+
+--
+-- TOC entry 281 (class 1255 OID 41042)
+-- Name: average_transfer_speed(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION average_transfer_speed(c_device_id integer) RETURNS double precision
+    LANGUAGE plpgsql
+    AS $$DECLARE result double precision;
+BEGIN
+  result = SUM(amount_of_memory*transfer_rate)/SUM(amount_of_memory) FROM memorymodule JOIN 
+	(SELECT hardware_component_id FROM devicehardwarecomponent 
+	WHERE device_id = c_device_id) AS devicescomponents 
+	ON memorymodule.hardware_component_id = devicescomponents.hardware_component_id;
+	RETURN result;
+END;$$;
+
+
+ALTER FUNCTION public.average_transfer_speed(c_device_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 282 (class 1255 OID 41043)
+-- Name: battery_capacity(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION battery_capacity(c_device_id integer) RETURNS double precision
+    LANGUAGE plpgsql
+    AS $$DECLARE result double precision;
+BEGIN
+	result = SUM(battery.capacity) FROM battery JOIN 
+	(SELECT hardware_component_id FROM devicehardwarecomponent 
+	WHERE device_id = c_device_id) AS devicescomponents 
+	ON battery.hardware_component_id = devicescomponents.hardware_component_id;
+	RETURN result;
+END;$$;
+
+
+ALTER FUNCTION public.battery_capacity(c_device_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 279 (class 1255 OID 41044)
+-- Name: cache_size_per_core(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION cache_size_per_core(c_device_id integer) RETURNS double precision
+    LANGUAGE plpgsql
+    AS $$DECLARE result double precision;
+BEGIN
+	result = SUM(processor.cores_num*processor.cache_size)/SUM(processor.cores_num) FROM processor JOIN 
+	(SELECT hardware_component_id FROM devicehardwarecomponent 
+	WHERE device_id = c_device_id) AS devicescomponents 
+	ON processor.hardware_component_id = devicescomponents.hardware_component_id;
+	RETURN result;
+END;$$;
+
+
+ALTER FUNCTION public.cache_size_per_core(c_device_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 283 (class 1255 OID 41060)
+-- Name: check_state(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION check_state() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$DECLARE
+stateRow RECORD;
+    BEGIN
+	for stateRow IN SELECT * FROM state WHERE state_id = NEW.state_id
+	LOOP
+        IF stateRow.battery_charge > battery_capacity(NEW.device_id) THEN
+            RAISE EXCEPTION 'battery charge cannot be more than battery capacity';
+        END IF;
+        IF stateRow.amount_of_free_memory > device_memory_amount(NEW.device_id) THEN
+            RAISE EXCEPTION 'amount of free memory cannot be more than total amount of memory';
+        END IF;
+        IF stateRow.download_speed > total_network_speed(NEW.device_id)
+         OR stateRow.upload_speed > total_network_speed(NEW.device_id) THEN
+         RAISE EXCEPTION 'download or upload speed cannot be more than network adapter max speed';
+         END IF;
+        END LOOP;
+     RETURN NEW;
+END$$;
+
+
+ALTER FUNCTION public.check_state() OWNER TO postgres;
+
+--
+-- TOC entry 309 (class 1255 OID 98917)
+-- Name: check_state_device(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION check_state_device() RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$DECLARE
+stateRow RECORD;
+    BEGIN
+	for stateRow IN SELECT * FROM state WHERE state_id = NEW.state_id
+	LOOP
+        return !(stateRow.battery_charge > battery_capacity(NEW.device_id) OR
+        stateRow.amount_of_free_memory > device_memory_amount(NEW.device_id) OR stateRow.download_speed > total_network_speed(NEW.device_id)
+         OR stateRow.upload_speed > total_network_speed(NEW.device_id));
+        END LOOP;
+     RAISE EXCEPTION 'Invalid query - returned more than one state';
+END$$;
+
+
+ALTER FUNCTION public.check_state_device() OWNER TO postgres;
+
+--
+-- TOC entry 293 (class 1255 OID 98926)
+-- Name: check_state_device(integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION check_state_device(st_id integer, dev_id integer) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$DECLARE
+stateRow RECORD;
+deviceRow RECORD;
+    BEGIN
+	SELECT * INTO stateRow FROM state WHERE state_id = st_id;
+	SELECT * INTO deviceRow FROM device_full_data WHERE device_id = dev_id;
+        return NOT(stateRow.battery_charge > deviceRow.battery_capacity OR
+        stateRow.amount_of_free_memory > device_memory_amount(dev_id) OR stateRow.download_speed > deviceRow.networkadapter_max_speed
+         OR stateRow.upload_speed > deviceRow.networkadapter_max_speed);
+END$$;
+
+
+ALTER FUNCTION public.check_state_device(st_id integer, dev_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 280 (class 1255 OID 41045)
+-- Name: clock_speed_per_core(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION clock_speed_per_core(c_device_id integer) RETURNS double precision
+    LANGUAGE plpgsql
+    AS $$DECLARE result double precision;
+BEGIN
+	result = SUM(processor.cores_num*processor.clock_speed)/SUM(processor.cores_num) FROM processor JOIN 
+	(SELECT hardware_component_id FROM devicehardwarecomponent 
+	WHERE device_id = c_device_id) AS devicescomponents 
+	ON processor.hardware_component_id = devicescomponents.hardware_component_id;
+	RETURN result;
+END;$$;
+
+
+ALTER FUNCTION public.clock_speed_per_core(c_device_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 284 (class 1255 OID 41072)
+-- Name: defaul_index_trial_f(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION defaul_index_trial_f() RETURNS integer
+    LANGUAGE plpgsql
+    AS $$DECLARE
+dist double precision;
+id integer;
+BEGIN
+dist = MIN(cube_distance(cube(ARRAY[col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, 
+            col11, col12, col13, col14, col15]), cube(ARRAY[65,814,447,596,61,667,149,763,38,39,514,399,635,443,761]))) FROM default_index_trial;
+id = p_key FROM default_index_trial WHERE cube_distance(cube(ARRAY[col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, 
+            col11, col12, col13, col14, col15]), cube(ARRAY[65,814,447,596,61,667,149,763,38,39,514,399,635,443,761])) = dist;
+return id;
+END;$$;
+
+
+ALTER FUNCTION public.defaul_index_trial_f() OWNER TO postgres;
+
+--
+-- TOC entry 278 (class 1255 OID 74134)
+-- Name: delete_developer_dep_ent(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_developer_dep_ent(d_id integer) RETURNS SETOF void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+PERFORM delete_hcf_dep_ent(hardware_component_family_id) FROM hardwarecomponentfamily WHERE hardwarecomponentfamily.developer_id = d_id;
+   DELETE FROM hardwarecomponentfamily WHERE hardwarecomponentfamily.developer_id = d_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_developer_dep_ent(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 291 (class 1255 OID 74147)
+-- Name: delete_device_dep_ent(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_device_dep_ent(d_id integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   PERFORM delete_ds_dep_ent(device_state_id) FROM devicestate WHERE device_id = d_id;
+DELETE FROM devicestate WHERE device_id = d_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_device_dep_ent(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 268 (class 1255 OID 98876)
+-- Name: delete_ds_dep_ent(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_ds_dep_ent(ds_id integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   DELETE FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.device_state_id = ds_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_ds_dep_ent(ds_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 292 (class 1255 OID 57808)
+-- Name: delete_harware_dep_ent(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_harware_dep_ent(h_id integer) RETURNS SETOF void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   PERFORM delete_device_dep_ent(device_id) FROM devicehardwarecomponent WHERE hardware_component_id = h_id GROUP BY device_id;
+   DELETE FROM device WHERE device.device_id IN 
+   (SELECT DISTINCT device_id FROM devicehardwarecomponent WHERE hardware_component_id = h_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_harware_dep_ent(h_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 276 (class 1255 OID 74139)
+-- Name: delete_hcf_dep_ent(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_hcf_dep_ent(hcf_id integer) RETURNS SETOF void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+PERFORM delete_harware_dep_ent(hardware_component_id) FROM hardwarecomponent WHERE hardwarecomponent.hardware_component_family_id = hcf_id;
+   DELETE FROM hardwarecomponent WHERE hardwarecomponent.hardware_component_family_id = hcf_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_hcf_dep_ent(hcf_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 269 (class 1255 OID 57784)
+-- Name: delete_state_dep_ent(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_state_dep_ent(s_id integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   PERFORM delete_ds_dep_ent(device_state_id) FROM devicestate WHERE state_id = s_id;
+	DELETE FROM devicestate WHERE state_id = s_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_state_dep_ent(s_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 271 (class 1255 OID 98898)
+-- Name: delete_task_dep_ent(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_task_dep_ent() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   DELETE FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.task_id = NEW.task_id);
+RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_task_dep_ent() OWNER TO postgres;
+
+--
+-- TOC entry 273 (class 1255 OID 57785)
+-- Name: delete_task_dep_ent(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION delete_task_dep_ent(t_id integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   DELETE FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.task_id = t_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.delete_task_dep_ent(t_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 303 (class 1255 OID 65936)
+-- Name: developer_by_type(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION developer_by_type(t_id integer) RETURNS SETOF integer
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY (SELECT developer_id FROM developer WHERE developer_id IN 
+(SELECT developer_id FROM hardwarecomponentfamily WHERE hardware_component_type_id = t_id));
+END;
+$$;
+
+
+ALTER FUNCTION public.developer_by_type(t_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 287 (class 1255 OID 74130)
+-- Name: developer_dep_device_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION developer_dep_device_num(d_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(DISTINCT device_id) FROM devicehardwarecomponent WHERE hardware_component_id IN
+   (SELECT DISTINCT hardware_component_id FROM hardwarecomponent WHERE hardware_component_family_id IN (
+   SELECT DISTINCT hardware_component_family_id FROM hardwarecomponentfamily
+    WHERE developer_id = d_id));
+END;
+$$;
+
+
+ALTER FUNCTION public.developer_dep_device_num(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 302 (class 1255 OID 74131)
+-- Name: developer_dep_device_state_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION developer_dep_device_state_num(d_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(device_state_id) FROM devicestate WHERE device_id IN
+   (SELECT DISTINCT device_id FROM devicehardwarecomponent WHERE hardware_component_id IN
+   (SELECT DISTINCT hardware_component_id FROM hardwarecomponent WHERE hardware_component_family_id IN (
+   SELECT DISTINCT hardware_component_family_id FROM hardwarecomponentfamily
+    WHERE developer_id = d_id)));
+END;
+$$;
+
+
+ALTER FUNCTION public.developer_dep_device_state_num(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 301 (class 1255 OID 74129)
+-- Name: developer_dep_hc_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION developer_dep_hc_num(d_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(DISTINCT hardware_component_id) FROM hardwarecomponent WHERE hardware_component_family_id IN (
+   SELECT DISTINCT hardware_component_family_id FROM hardwarecomponentfamily
+    WHERE developer_id = d_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.developer_dep_hc_num(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 300 (class 1255 OID 74128)
+-- Name: developer_dep_hcf_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION developer_dep_hcf_num(d_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(DISTINCT hardware_component_family_id) FROM hardwarecomponentfamily
+    WHERE developer_id = d_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.developer_dep_hcf_num(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 289 (class 1255 OID 74133)
+-- Name: developer_dep_precedent_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION developer_dep_precedent_num(d_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(precedent_id) FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.device_state_id IN 
+   (SELECT device_state_id FROM devicestate WHERE device_id IN
+   (SELECT DISTINCT device_id FROM devicehardwarecomponent WHERE hardware_component_id IN
+   (SELECT DISTINCT hardware_component_id FROM hardwarecomponent WHERE hardware_component_family_id IN (
+   SELECT DISTINCT hardware_component_family_id FROM hardwarecomponentfamily
+    WHERE developer_id = d_id)))));
+END;
+$$;
+
+
+ALTER FUNCTION public.developer_dep_precedent_num(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 308 (class 1255 OID 74146)
+-- Name: device_dep_devicestate_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION device_dep_devicestate_num(d_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(*) FROM devicestate WHERE device_id = d_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.device_dep_devicestate_num(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 307 (class 1255 OID 74145)
+-- Name: device_dep_prec_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION device_dep_prec_num(d_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(precedent_id) FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.device_state_id IN
+	(SELECT device_state_id FROM devicestate WHERE device_id = d_id));
+END;
+$$;
+
+
+ALTER FUNCTION public.device_dep_prec_num(d_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 266 (class 1255 OID 41012)
+-- Name: device_memory_amount(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION device_memory_amount(c_device_id integer) RETURNS double precision
+    LANGUAGE plpgsql
+    AS $$DECLARE
+sum double precision;
+ BEGIN
+	sum = SUM(amount_of_memory) FROM memorymodule JOIN 
+	(SELECT hardware_component_id FROM devicehardwarecomponent 
+	WHERE device_id = c_device_id) AS devicescomponents 
+	ON memorymodule.hardware_component_id = devicescomponents.hardware_component_id;
+	RETURN sum;
+END$$;
+
+
+ALTER FUNCTION public.device_memory_amount(c_device_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 288 (class 1255 OID 98911)
+-- Name: ds_dep_prec_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION ds_dep_prec_num(ds_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(precedent_id) FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.device_state_id = ds_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.ds_dep_prec_num(ds_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 298 (class 1255 OID 57787)
+-- Name: harware_dep_device_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION harware_dep_device_num(h_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(DISTINCT device_id) FROM devicehardwarecomponent WHERE hardware_component_id = h_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.harware_dep_device_num(h_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 285 (class 1255 OID 57806)
+-- Name: harware_dep_devicestate_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION harware_dep_devicestate_num(h_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(device_state_id) FROM devicestate WHERE device_id IN
+	(SELECT DISTINCT device_id FROM devicehardwarecomponent WHERE hardware_component_id = h_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.harware_dep_devicestate_num(h_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 299 (class 1255 OID 57801)
+-- Name: harware_dep_precedent_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION harware_dep_precedent_num(h_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(precedent_id) FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.device_state_id IN
+	(SELECT device_state_id FROM devicestate WHERE device_id IN
+	(SELECT DISTINCT device_id FROM devicehardwarecomponent WHERE hardware_component_id = h_id)));
+END;
+$$;
+
+
+ALTER FUNCTION public.harware_dep_precedent_num(h_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 304 (class 1255 OID 74135)
+-- Name: hcf_dep_device_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION hcf_dep_device_num(hcf_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(DISTINCT device_id) FROM devicehardwarecomponent WHERE hardware_component_id IN
+   (SELECT DISTINCT hardware_component_id FROM hardwarecomponent WHERE hardware_component_family_id = hcf_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.hcf_dep_device_num(hcf_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 306 (class 1255 OID 74138)
+-- Name: hcf_dep_device_state_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION hcf_dep_device_state_num(hcf_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(device_state_id) FROM devicestate WHERE device_id IN
+   (SELECT DISTINCT device_id FROM devicehardwarecomponent WHERE hardware_component_id IN
+   (SELECT DISTINCT hardware_component_id FROM hardwarecomponent WHERE hardware_component_family_id = hcf_id));
+END;
+$$;
+
+
+ALTER FUNCTION public.hcf_dep_device_state_num(hcf_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 305 (class 1255 OID 74136)
+-- Name: hcf_dep_hc_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION hcf_dep_hc_num(hcf_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(DISTINCT hardware_component_id) FROM hardwarecomponent WHERE hardware_component_family_id = hcf_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.hcf_dep_hc_num(hcf_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 238 (class 1255 OID 24607)
+-- Name: insert_default(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insert_default() RETURNS void
+    LANGUAGE plpgsql
+    AS $$DECLARE
+i INTEGER;
+BEGIN
+    i := 0;
+    FOR i IN 1 .. 10000 LOOP
+	INSERT INTO default_index_trial(
+            col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, 
+            col11, col12, col13, col14, col15)
+    VALUES (random()*1000, random()*1000, random()*1000, random()*1000, random()*1000, random()*1000, random()*1000, random()*1000, random()*1000, random()*1000, 
+            random()*1000, random()*1000, random()*1000, random()*1000, random()*1000);
+    END LOOP;
+END;$$;
+
+
+ALTER FUNCTION public.insert_default() OWNER TO postgres;
+
+--
+-- TOC entry 290 (class 1255 OID 49505)
+-- Name: set_time_to_solve(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION set_time_to_solve() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$DECLARE
+point_data RECORD;
+sum_time_to_solve REAL;
+result_time_to_solve REAL;
+sum_time_to_solve_weight REAL;
+new_p_point cube;
+    BEGIN
+	sum_time_to_solve = 0;
+	sum_time_to_solve_weight = 0;
+	new_p_point = p_point FROM precedent_as_point WHERE precedent_id = NEW.precedent_id;
+	FOR point_data IN SELECT time_to_solve, cube_distance(p_point, new_p_point) AS distance FROM precedent_as_point 
+		WHERE precedent_id != NEW.precedent_id ORDER BY distance LIMIT 10 LOOP
+        IF point_data.distance = 0 THEN
+		sum_time_to_solve = -1;
+		result_time_to_solve = point_data.time_to_solve;
+		EXIT;
+        ELSE
+		sum_time_to_solve = sum_time_to_solve + point_data.time_to_solve/point_data.distance;
+		sum_time_to_solve_weight = sum_time_to_solve_weight + 1/point_data.distance;
+	END IF;
+        END LOOP;
+        IF sum_time_to_solve != -1 THEN
+		result_time_to_solve = sum_time_to_solve/sum_time_to_solve_weight;
+	END IF;
+	UPDATE precedent SET time_to_solve = result_time_to_solve WHERE precedent_id = NEW.precedent_id;
+	RETURN NEW;
+END$$;
+
+
+ALTER FUNCTION public.set_time_to_solve() OWNER TO postgres;
+
+--
+-- TOC entry 297 (class 1255 OID 57773)
+-- Name: state_dep_devicestate_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION state_dep_devicestate_num(s_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(*) FROM devicestate WHERE state_id = s_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.state_dep_devicestate_num(s_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 296 (class 1255 OID 57772)
+-- Name: state_dep_prec_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION state_dep_prec_num(s_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(precedent_id) FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.device_state_id IN
+	(SELECT device_state_id FROM devicestate WHERE state_id = s_id));
+END;
+$$;
+
+
+ALTER FUNCTION public.state_dep_prec_num(s_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 286 (class 1255 OID 98908)
+-- Name: t_delete_developer_dep_ent(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION t_delete_developer_dep_ent() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+PERFORM delete_hcf_dep_ent(hardware_component_family_id) FROM hardwarecomponentfamily WHERE hardwarecomponentfamily.developer_id = NEW.developer_id;
+   DELETE FROM hardwarecomponentfamily WHERE hardwarecomponentfamily.developer_id = NEW.developer_id;
+   RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.t_delete_developer_dep_ent() OWNER TO postgres;
+
+--
+-- TOC entry 275 (class 1255 OID 98904)
+-- Name: t_delete_device_dep_ent(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION t_delete_device_dep_ent() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   PERFORM delete_ds_dep_ent(device_state_id) FROM devicestate WHERE device_id = NEW.device_id;
+DELETE FROM devicestate WHERE device_id = NEW.device_id;
+RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.t_delete_device_dep_ent() OWNER TO postgres;
+
+--
+-- TOC entry 274 (class 1255 OID 98901)
+-- Name: t_delete_ds_dep_ent(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION t_delete_ds_dep_ent() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   DELETE FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.device_state_id = NEW.device_state_id);
+	RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.t_delete_ds_dep_ent() OWNER TO postgres;
+
+--
+-- TOC entry 270 (class 1255 OID 98887)
+-- Name: t_delete_harware_dep_ent(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION t_delete_harware_dep_ent() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   PERFORM delete_device_dep_ent(device_id) FROM devicehardwarecomponent WHERE hardware_component_id = NEW.hardware_component_id GROUP BY device_id;
+   DELETE FROM device WHERE device.device_id IN 
+   (SELECT DISTINCT device_id FROM devicehardwarecomponent WHERE hardware_component_id = NEW.hardware_component_id);
+   RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.t_delete_harware_dep_ent() OWNER TO postgres;
+
+--
+-- TOC entry 277 (class 1255 OID 98906)
+-- Name: t_delete_hcf_dep_ent(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION t_delete_hcf_dep_ent() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+PERFORM delete_harware_dep_ent(hardware_component_id) FROM hardwarecomponent WHERE hardwarecomponent.hardware_component_family_id = NEW.hardware_component_family_id;
+   DELETE FROM hardwarecomponent WHERE hardwarecomponent.hardware_component_family_id = NEW.hardware_component_family_id;
+   RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.t_delete_hcf_dep_ent() OWNER TO postgres;
+
+--
+-- TOC entry 272 (class 1255 OID 98899)
+-- Name: t_delete_task_dep_ent(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION t_delete_task_dep_ent() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   DELETE FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.task_id = NEW.task_id);
+RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.t_delete_task_dep_ent() OWNER TO postgres;
+
+--
+-- TOC entry 295 (class 1255 OID 57770)
+-- Name: task_dep_prec_num(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION task_dep_prec_num(t_id integer) RETURNS SETOF bigint
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   RETURN QUERY SELECT COUNT(precedent_id) FROM precedent WHERE precedent_id >= 
+	(SELECT MIN(precedent_id) FROM precedent WHERE precedent.task_id = t_id);
+END;
+$$;
+
+
+ALTER FUNCTION public.task_dep_prec_num(t_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 267 (class 1255 OID 41065)
+-- Name: total_network_speed(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION total_network_speed(c_device_id integer) RETURNS double precision
+    LANGUAGE plpgsql
+    AS $$DECLARE result double precision;
+BEGIN
+	result = SUM(networkadapter.max_speed) FROM networkadapter JOIN 
+	(SELECT hardware_component_id FROM devicehardwarecomponent 
+	WHERE device_id = c_device_id) AS devicescomponents 
+	ON networkadapter.hardware_component_id = devicescomponents.hardware_component_id;
+	RETURN result;
+END;$$;
+
+
+ALTER FUNCTION public.total_network_speed(c_device_id integer) OWNER TO postgres;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- TOC entry 199 (class 1259 OID 16801)
+-- Name: state; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE state (
+    state_id integer NOT NULL,
+    cpu_idling_time real NOT NULL,
+    amount_of_free_memory real NOT NULL,
+    battery_charge real NOT NULL,
+    download_speed real NOT NULL,
+    upload_speed real NOT NULL,
+    CONSTRAINT state_amount_of_free_memory_check CHECK ((amount_of_free_memory >= (0)::double precision)),
+    CONSTRAINT state_battery_charge_check CHECK ((battery_charge >= (0)::double precision)),
+    CONSTRAINT state_cpu_idling_time_check CHECK ((cpu_idling_time >= (0)::double precision)),
+    CONSTRAINT state_dowload_speed_check CHECK ((download_speed >= (0)::double precision)),
+    CONSTRAINT state_upload_speed_check CHECK ((upload_speed >= (0)::double precision))
+);
+
+
+ALTER TABLE public.state OWNER TO postgres;
+
+--
+-- TOC entry 294 (class 1255 OID 98929)
+-- Name: valid_devicestate_by_device(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION valid_devicestate_by_device(dev_id integer) RETURNS SETOF state
+    LANGUAGE plpgsql
+    AS $$DECLARE
+stateRow RECORD;
+deviceRow RECORD;
+    BEGIN
+	RETURN QUERY SELECT * FROM state WHERE check_state_device(state_id, dev_id) = true;
+END$$;
+
+
+ALTER FUNCTION public.valid_devicestate_by_device(dev_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 169 (class 1259 OID 16649)
+-- Name: battery; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE battery (
+    capacity double precision NOT NULL,
+    hardware_component_id integer NOT NULL,
+    CONSTRAINT battey_capacity_check CHECK ((capacity > (0)::double precision))
+);
+
+
+ALTER TABLE public.battery OWNER TO postgres;
+
+--
+-- TOC entry 172 (class 1259 OID 16660)
+-- Name: device; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE device (
+    device_id integer NOT NULL,
+    device_name character varying(256) NOT NULL,
+    developer_id integer NOT NULL
+);
+
+
+ALTER TABLE public.device OWNER TO postgres;
+
+--
+-- TOC entry 175 (class 1259 OID 16671)
+-- Name: devicehardwarecomponent; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE devicehardwarecomponent (
+    device_id integer NOT NULL,
+    hardware_component_id integer NOT NULL,
+    component_id integer NOT NULL
+);
+
+
+ALTER TABLE public.devicehardwarecomponent OWNER TO postgres;
+
+--
+-- TOC entry 192 (class 1259 OID 16735)
+-- Name: memorymodule; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE memorymodule (
+    transfer_rate real NOT NULL,
+    amount_of_memory real NOT NULL,
+    hardware_component_id integer NOT NULL,
+    CONSTRAINT memorymodule_amount_of_memory_check CHECK ((amount_of_memory > (0)::double precision)),
+    CONSTRAINT memorymodule_transfer_rate_check CHECK ((transfer_rate > (0)::double precision))
+);
+
+
+ALTER TABLE public.memorymodule OWNER TO postgres;
+
+--
+-- TOC entry 194 (class 1259 OID 16745)
+-- Name: networkadapter; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE networkadapter (
+    max_speed real NOT NULL,
+    hardware_component_id integer NOT NULL,
+    CONSTRAINT networkadapter_max_speed_check CHECK ((max_speed > (0)::double precision))
+);
+
+
+ALTER TABLE public.networkadapter OWNER TO postgres;
+
+--
+-- TOC entry 197 (class 1259 OID 16782)
+-- Name: processor; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE processor (
+    cores_num integer NOT NULL,
+    cache_size real NOT NULL,
+    clock_speed real NOT NULL,
+    hardware_component_id integer NOT NULL,
+    CONSTRAINT processor_cache_size_check CHECK ((cache_size > (0)::double precision)),
+    CONSTRAINT processor_clock_speed_check CHECK ((clock_speed > (0)::double precision)),
+    CONSTRAINT processor_cores_num_check CHECK ((cores_num > 0))
+);
+
+
+ALTER TABLE public.processor OWNER TO postgres;
+
+--
+-- TOC entry 215 (class 1259 OID 98938)
+-- Name: device_full_data; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW device_full_data AS
+    SELECT hc.device_id, hc.device_name, hc.developer_id, sum(processor.cores_num) AS cores_num, (sum((processor.cache_size * (processor.cores_num)::double precision)) / (sum(processor.cores_num))::double precision) AS cache_size, (sum((processor.clock_speed * (processor.cores_num)::double precision)) / (sum(processor.cores_num))::double precision) AS clock_speed, (sum((memorymodule.amount_of_memory / memorymodule.transfer_rate)) * sum(memorymodule.transfer_rate)) AS amount_of_memory, sum(memorymodule.amount_of_memory) AS transfer_on_memory, sum(networkadapter.max_speed) AS networkadapter_max_speed, sum(battery.capacity) AS battery_capacity FROM (((((SELECT devicehardwarecomponent.hardware_component_id, device.device_id, device.device_name, device.developer_id FROM (device LEFT JOIN devicehardwarecomponent ON ((device.device_id = devicehardwarecomponent.device_id)))) hc LEFT JOIN processor ON ((processor.hardware_component_id = hc.hardware_component_id))) LEFT JOIN memorymodule ON ((memorymodule.hardware_component_id = hc.hardware_component_id))) LEFT JOIN networkadapter ON ((networkadapter.hardware_component_id = hc.hardware_component_id))) LEFT JOIN battery ON ((battery.hardware_component_id = hc.hardware_component_id))) GROUP BY hc.device_id, hc.device_name, hc.developer_id;
+
+
+ALTER TABLE public.device_full_data OWNER TO postgres;
+
+--
+-- TOC entry 310 (class 1255 OID 98943)
+-- Name: valid_devicestate_by_state(integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION valid_devicestate_by_state(st_id integer) RETURNS SETOF device_full_data
+    LANGUAGE plpgsql
+    AS $$DECLARE
+stateRow RECORD;
+deviceRow RECORD;
+    BEGIN
+	RETURN QUERY SELECT * FROM device_full_data WHERE check_state_device(st_id, device_id) = true;
+END$$;
+
+
+ALTER FUNCTION public.valid_devicestate_by_state(st_id integer) OWNER TO postgres;
+
+--
+-- TOC entry 211 (class 1259 OID 49442)
+-- Name: attribute_weight; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE attribute_weight (
+    cores_num real NOT NULL,
+    cache_size real NOT NULL,
+    clock_speed real NOT NULL,
+    transfer_on_memory real NOT NULL,
+    battery_charge real NOT NULL,
+    cpu_idling_time real NOT NULL,
+    downloading_time real NOT NULL,
+    uploading_time real NOT NULL,
+    computational_complexity real NOT NULL,
+    meory_diff real NOT NULL,
+    max_running_time real NOT NULL,
+    time_to_solve real NOT NULL,
+    precedent_id integer,
+    weight_state_id integer NOT NULL
+);
+
+
+ALTER TABLE public.attribute_weight OWNER TO postgres;
+
+--
+-- TOC entry 212 (class 1259 OID 49445)
+-- Name: attribute_weight_precedent_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE attribute_weight_precedent_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.attribute_weight_precedent_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2290 (class 0 OID 0)
+-- Dependencies: 212
+-- Name: attribute_weight_precedent_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE attribute_weight_precedent_id_seq OWNED BY attribute_weight.precedent_id;
+
+
+--
+-- TOC entry 213 (class 1259 OID 49451)
+-- Name: attribute_weight_weight_state_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE attribute_weight_weight_state_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.attribute_weight_weight_state_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2291 (class 0 OID 0)
+-- Dependencies: 213
+-- Name: attribute_weight_weight_state_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE attribute_weight_weight_state_id_seq OWNED BY attribute_weight.weight_state_id;
+
+
+--
+-- TOC entry 168 (class 1259 OID 16647)
+-- Name: battey_hardware_component_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE battey_hardware_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.battey_hardware_component_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2292 (class 0 OID 0)
+-- Dependencies: 168
+-- Name: battey_hardware_component_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE battey_hardware_component_id_seq OWNED BY battery.hardware_component_id;
+
+
+--
+-- TOC entry 190 (class 1259 OID 16727)
+-- Name: developer; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE developer (
+    developer_id integer NOT NULL,
+    developer_name character(256) NOT NULL
+);
+
+
+ALTER TABLE public.developer OWNER TO postgres;
+
+--
+-- TOC entry 171 (class 1259 OID 16658)
+-- Name: device_developer_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE device_developer_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.device_developer_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2293 (class 0 OID 0)
+-- Dependencies: 171
+-- Name: device_developer_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE device_developer_id_seq OWNED BY device.developer_id;
+
+
+--
+-- TOC entry 170 (class 1259 OID 16656)
+-- Name: device_device_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE device_device_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.device_device_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2294 (class 0 OID 0)
+-- Dependencies: 170
+-- Name: device_device_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE device_device_id_seq OWNED BY device.device_id;
+
+
+--
+-- TOC entry 207 (class 1259 OID 41001)
+-- Name: devicehardwarecomponent_component_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE devicehardwarecomponent_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.devicehardwarecomponent_component_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2295 (class 0 OID 0)
+-- Dependencies: 207
+-- Name: devicehardwarecomponent_component_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE devicehardwarecomponent_component_id_seq OWNED BY devicehardwarecomponent.component_id;
+
+
+--
+-- TOC entry 173 (class 1259 OID 16667)
+-- Name: devicehardwarecomponent_device_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE devicehardwarecomponent_device_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.devicehardwarecomponent_device_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2296 (class 0 OID 0)
+-- Dependencies: 173
+-- Name: devicehardwarecomponent_device_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE devicehardwarecomponent_device_id_seq OWNED BY devicehardwarecomponent.device_id;
+
+
+--
+-- TOC entry 174 (class 1259 OID 16669)
+-- Name: devicehardwarecomponent_hardware_component_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE devicehardwarecomponent_hardware_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.devicehardwarecomponent_hardware_component_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2297 (class 0 OID 0)
+-- Dependencies: 174
+-- Name: devicehardwarecomponent_hardware_component_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE devicehardwarecomponent_hardware_component_id_seq OWNED BY devicehardwarecomponent.hardware_component_id;
+
+
+--
+-- TOC entry 179 (class 1259 OID 16684)
+-- Name: devicestate; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE devicestate (
+    state_id integer NOT NULL,
+    device_id integer NOT NULL,
+    device_state_id integer NOT NULL
+);
+
+
+ALTER TABLE public.devicestate OWNER TO postgres;
+
+--
+-- TOC entry 177 (class 1259 OID 16680)
+-- Name: devicestate_device_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE devicestate_device_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.devicestate_device_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2298 (class 0 OID 0)
+-- Dependencies: 177
+-- Name: devicestate_device_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE devicestate_device_id_seq OWNED BY devicestate.device_id;
+
+
+--
+-- TOC entry 178 (class 1259 OID 16682)
+-- Name: devicestate_device_state_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE devicestate_device_state_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.devicestate_device_state_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2299 (class 0 OID 0)
+-- Dependencies: 178
+-- Name: devicestate_device_state_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE devicestate_device_state_id_seq OWNED BY devicestate.device_state_id;
+
+
+--
+-- TOC entry 176 (class 1259 OID 16678)
+-- Name: devicestate_state_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE devicestate_state_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.devicestate_state_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2300 (class 0 OID 0)
+-- Dependencies: 176
+-- Name: devicestate_state_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE devicestate_state_id_seq OWNED BY devicestate.state_id;
+
+
+--
+-- TOC entry 182 (class 1259 OID 16696)
+-- Name: hardwarecomponent; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE hardwarecomponent (
+    hardware_component_id integer NOT NULL,
+    hardware_component_family_id integer NOT NULL,
+    hardware_component_name character varying(256) NOT NULL
+);
+
+
+ALTER TABLE public.hardwarecomponent OWNER TO postgres;
+
+--
+-- TOC entry 181 (class 1259 OID 16694)
+-- Name: hardwarecomponent_hardware_component_family_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE hardwarecomponent_hardware_component_family_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hardwarecomponent_hardware_component_family_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2301 (class 0 OID 0)
+-- Dependencies: 181
+-- Name: hardwarecomponent_hardware_component_family_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE hardwarecomponent_hardware_component_family_id_seq OWNED BY hardwarecomponent.hardware_component_family_id;
+
+
+--
+-- TOC entry 180 (class 1259 OID 16692)
+-- Name: hardwarecomponent_hardware_component_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE hardwarecomponent_hardware_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hardwarecomponent_hardware_component_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2302 (class 0 OID 0)
+-- Dependencies: 180
+-- Name: hardwarecomponent_hardware_component_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE hardwarecomponent_hardware_component_id_seq OWNED BY hardwarecomponent.hardware_component_id;
+
+
+--
+-- TOC entry 186 (class 1259 OID 16709)
+-- Name: hardwarecomponentfamily; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE hardwarecomponentfamily (
+    hardware_component_family_id integer NOT NULL,
+    hardware_component_type_id integer NOT NULL,
+    hardware_component_family_name character varying(256) NOT NULL,
+    developer_id integer NOT NULL
+);
+
+
+ALTER TABLE public.hardwarecomponentfamily OWNER TO postgres;
+
+--
+-- TOC entry 185 (class 1259 OID 16707)
+-- Name: hardwarecomponentfamily_developer_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE hardwarecomponentfamily_developer_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hardwarecomponentfamily_developer_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2303 (class 0 OID 0)
+-- Dependencies: 185
+-- Name: hardwarecomponentfamily_developer_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE hardwarecomponentfamily_developer_id_seq OWNED BY hardwarecomponentfamily.developer_id;
+
+
+--
+-- TOC entry 183 (class 1259 OID 16703)
+-- Name: hardwarecomponentfamily_hardware_component_family_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE hardwarecomponentfamily_hardware_component_family_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hardwarecomponentfamily_hardware_component_family_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2304 (class 0 OID 0)
+-- Dependencies: 183
+-- Name: hardwarecomponentfamily_hardware_component_family_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE hardwarecomponentfamily_hardware_component_family_id_seq OWNED BY hardwarecomponentfamily.hardware_component_family_id;
+
+
+--
+-- TOC entry 184 (class 1259 OID 16705)
+-- Name: hardwarecomponentfamily_hardware_component_type_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE hardwarecomponentfamily_hardware_component_type_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hardwarecomponentfamily_hardware_component_type_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2305 (class 0 OID 0)
+-- Dependencies: 184
+-- Name: hardwarecomponentfamily_hardware_component_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE hardwarecomponentfamily_hardware_component_type_id_seq OWNED BY hardwarecomponentfamily.hardware_component_type_id;
+
+
+--
+-- TOC entry 188 (class 1259 OID 16719)
+-- Name: hardwarecomponenttype; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE hardwarecomponenttype (
+    hardware_component_type_id integer NOT NULL,
+    hardware_component_type_name character varying(256) NOT NULL
+);
+
+
+ALTER TABLE public.hardwarecomponenttype OWNER TO postgres;
+
+--
+-- TOC entry 187 (class 1259 OID 16717)
+-- Name: hardwarecomponenttype_hardware_component_type_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE hardwarecomponenttype_hardware_component_type_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hardwarecomponenttype_hardware_component_type_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2306 (class 0 OID 0)
+-- Dependencies: 187
+-- Name: hardwarecomponenttype_hardware_component_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE hardwarecomponenttype_hardware_component_type_id_seq OWNED BY hardwarecomponenttype.hardware_component_type_id;
+
+
+--
+-- TOC entry 189 (class 1259 OID 16725)
+-- Name: hardwaredeveloper_developer_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE hardwaredeveloper_developer_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hardwaredeveloper_developer_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2307 (class 0 OID 0)
+-- Dependencies: 189
+-- Name: hardwaredeveloper_developer_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE hardwaredeveloper_developer_id_seq OWNED BY developer.developer_id;
+
+
+--
+-- TOC entry 191 (class 1259 OID 16733)
+-- Name: memorymodule_hardware_component_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE memorymodule_hardware_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.memorymodule_hardware_component_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2308 (class 0 OID 0)
+-- Dependencies: 191
+-- Name: memorymodule_hardware_component_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE memorymodule_hardware_component_id_seq OWNED BY memorymodule.hardware_component_id;
+
+
+--
+-- TOC entry 193 (class 1259 OID 16743)
+-- Name: networkadapter_hardware_component_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE networkadapter_hardware_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.networkadapter_hardware_component_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2309 (class 0 OID 0)
+-- Dependencies: 193
+-- Name: networkadapter_hardware_component_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE networkadapter_hardware_component_id_seq OWNED BY networkadapter.hardware_component_id;
+
+
+--
+-- TOC entry 195 (class 1259 OID 16758)
+-- Name: precedent; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE precedent (
+    precedent_id integer NOT NULL,
+    task_id integer NOT NULL,
+    device_state_id integer NOT NULL,
+    time_to_solve real DEFAULT (-1) NOT NULL,
+    is_solved_correctly boolean
+);
+
+
+ALTER TABLE public.precedent OWNER TO postgres;
+
+--
+-- TOC entry 204 (class 1259 OID 16830)
+-- Name: task; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE task (
+    task_id integer NOT NULL,
+    computational_complexity real NOT NULL,
+    amount_of_memory real NOT NULL,
+    downloading_amount_of_data real NOT NULL,
+    uploading_amount_of_data real NOT NULL,
+    max_running_time real NOT NULL,
+    CONSTRAINT task_amount_of_memory_check CHECK ((amount_of_memory > (0)::double precision)),
+    CONSTRAINT task_computational_complexity_check CHECK ((computational_complexity > (0)::double precision)),
+    CONSTRAINT task_downloading_amount_of_data_check CHECK ((downloading_amount_of_data >= (0)::double precision)),
+    CONSTRAINT task_uploading_amount_of_data_check CHECK ((uploading_amount_of_data >= (0)::double precision))
+);
+
+
+ALTER TABLE public.task OWNER TO postgres;
+
+--
+-- TOC entry 214 (class 1259 OID 49546)
+-- Name: precedent_as_point; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW precedent_as_point AS
+    SELECT device_state.precedent_id, cube(ARRAY[((device_state.cores_num)::real)::double precision, (device_state.cache_size)::double precision, (device_state.clock_speed)::double precision, (device_state.transfer_on_memory)::double precision, (device_state.battery_charge)::double precision, (device_state.cpu_idling_time)::double precision, ((task.downloading_amount_of_data / device_state.download_speed))::double precision, ((task.uploading_amount_of_data / device_state.upload_speed))::double precision, (task.computational_complexity)::double precision, ((device_state.amount_of_free_memory - task.amount_of_memory))::double precision, (task.max_running_time)::double precision]) AS p_point, device_state.time_to_solve FROM ((SELECT device_char.task_id, device_char.cores_num, device_char.precedent_id, device_char.cache_size, device_char.clock_speed, device_char.transfer_on_memory, state.battery_charge, state.cpu_idling_time, state.amount_of_free_memory, state.download_speed, state.upload_speed, device_char.time_to_solve FROM ((SELECT hc.state_id, hc.task_id, hc.precedent_id, sum(processor.cores_num) AS cores_num, sum(processor.cache_size) AS cache_size, sum(processor.clock_speed) AS clock_speed, (sum(memorymodule.transfer_rate) / sum(memorymodule.amount_of_memory)) AS transfer_on_memory, hc.time_to_solve FROM (((((SELECT devicehardwarecomponent.hardware_component_id, device.device_id, device.state_id, device.precedent_id, device.task_id, device.time_to_solve FROM (devicehardwarecomponent JOIN (SELECT devicestate.device_id, devicestate.state_id, precedent.precedent_id, precedent.task_id, precedent.time_to_solve FROM (devicestate JOIN precedent ON ((devicestate.device_state_id = precedent.device_state_id))) WHERE ((precedent.is_solved_correctly = true) OR (precedent.is_solved_correctly IS NULL))) device ON ((devicehardwarecomponent.device_id = device.device_id)))) hc LEFT JOIN processor ON ((processor.hardware_component_id = hc.hardware_component_id))) LEFT JOIN memorymodule ON ((memorymodule.hardware_component_id = hc.hardware_component_id))) LEFT JOIN networkadapter ON ((networkadapter.hardware_component_id = hc.hardware_component_id))) LEFT JOIN battery ON ((battery.hardware_component_id = hc.hardware_component_id))) GROUP BY hc.precedent_id, hc.state_id, hc.device_id, hc.task_id, hc.time_to_solve) device_char JOIN state ON ((device_char.state_id = state.state_id)))) device_state JOIN task ON ((task.task_id = device_state.task_id)));
+
+
+ALTER TABLE public.precedent_as_point OWNER TO postgres;
+
+--
+-- TOC entry 210 (class 1259 OID 49294)
+-- Name: precedent_device_state_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE precedent_device_state_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.precedent_device_state_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2310 (class 0 OID 0)
+-- Dependencies: 210
+-- Name: precedent_device_state_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE precedent_device_state_id_seq OWNED BY precedent.device_state_id;
+
+
+--
+-- TOC entry 208 (class 1259 OID 49263)
+-- Name: precedent_precedent_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE precedent_precedent_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.precedent_precedent_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2311 (class 0 OID 0)
+-- Dependencies: 208
+-- Name: precedent_precedent_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE precedent_precedent_id_seq OWNED BY precedent.precedent_id;
+
+
+--
+-- TOC entry 209 (class 1259 OID 49287)
+-- Name: precedent_task_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE precedent_task_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.precedent_task_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2312 (class 0 OID 0)
+-- Dependencies: 209
+-- Name: precedent_task_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE precedent_task_id_seq OWNED BY precedent.task_id;
+
+
+--
+-- TOC entry 196 (class 1259 OID 16780)
+-- Name: processor_hardware_component_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE processor_hardware_component_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.processor_hardware_component_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2313 (class 0 OID 0)
+-- Dependencies: 196
+-- Name: processor_hardware_component_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE processor_hardware_component_id_seq OWNED BY processor.hardware_component_id;
+
+
+--
+-- TOC entry 198 (class 1259 OID 16799)
+-- Name: state_state_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE state_state_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.state_state_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2314 (class 0 OID 0)
+-- Dependencies: 198
+-- Name: state_state_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE state_state_id_seq OWNED BY state.state_id;
+
+
+--
+-- TOC entry 202 (class 1259 OID 16816)
+-- Name: sysuser; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE sysuser (
+    user_id integer NOT NULL,
+    email character varying(256) NOT NULL,
+    password character varying(256) NOT NULL,
+    f_name character varying(256) NOT NULL,
+    l_name character varying(256) NOT NULL,
+    user_type_id integer NOT NULL,
+    is_verified boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.sysuser OWNER TO postgres;
+
+--
+-- TOC entry 200 (class 1259 OID 16812)
+-- Name: sysuser_user_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE sysuser_user_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.sysuser_user_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2315 (class 0 OID 0)
+-- Dependencies: 200
+-- Name: sysuser_user_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE sysuser_user_id_seq OWNED BY sysuser.user_id;
+
+
+--
+-- TOC entry 201 (class 1259 OID 16814)
+-- Name: sysuser_user_type_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE sysuser_user_type_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.sysuser_user_type_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2316 (class 0 OID 0)
+-- Dependencies: 201
+-- Name: sysuser_user_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE sysuser_user_type_id_seq OWNED BY sysuser.user_type_id;
+
+
+--
+-- TOC entry 203 (class 1259 OID 16828)
+-- Name: task_task_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE task_task_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.task_task_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2317 (class 0 OID 0)
+-- Dependencies: 203
+-- Name: task_task_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE task_task_id_seq OWNED BY task.task_id;
+
+
+--
+-- TOC entry 206 (class 1259 OID 16842)
+-- Name: usertype; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE TABLE usertype (
+    user_type_id integer NOT NULL,
+    user_type_name character varying(256) NOT NULL
+);
+
+
+ALTER TABLE public.usertype OWNER TO postgres;
+
+--
+-- TOC entry 205 (class 1259 OID 16840)
+-- Name: usertype_user_type_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE usertype_user_type_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.usertype_user_type_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2318 (class 0 OID 0)
+-- Dependencies: 205
+-- Name: usertype_user_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE usertype_user_type_id_seq OWNED BY usertype.user_type_id;
+
+
+--
+-- TOC entry 2193 (class 2604 OID 49447)
+-- Name: precedent_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY attribute_weight ALTER COLUMN precedent_id SET DEFAULT nextval('attribute_weight_precedent_id_seq'::regclass);
+
+
+--
+-- TOC entry 2194 (class 2604 OID 49453)
+-- Name: weight_state_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY attribute_weight ALTER COLUMN weight_state_id SET DEFAULT nextval('attribute_weight_weight_state_id_seq'::regclass);
+
+
+--
+-- TOC entry 2148 (class 2604 OID 16652)
+-- Name: hardware_component_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY battery ALTER COLUMN hardware_component_id SET DEFAULT nextval('battey_hardware_component_id_seq'::regclass);
+
+
+--
+-- TOC entry 2164 (class 2604 OID 16730)
+-- Name: developer_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY developer ALTER COLUMN developer_id SET DEFAULT nextval('hardwaredeveloper_developer_id_seq'::regclass);
+
+
+--
+-- TOC entry 2150 (class 2604 OID 16663)
+-- Name: device_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY device ALTER COLUMN device_id SET DEFAULT nextval('device_device_id_seq'::regclass);
+
+
+--
+-- TOC entry 2151 (class 2604 OID 16664)
+-- Name: developer_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY device ALTER COLUMN developer_id SET DEFAULT nextval('device_developer_id_seq'::regclass);
+
+
+--
+-- TOC entry 2152 (class 2604 OID 16674)
+-- Name: device_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicehardwarecomponent ALTER COLUMN device_id SET DEFAULT nextval('devicehardwarecomponent_device_id_seq'::regclass);
+
+
+--
+-- TOC entry 2153 (class 2604 OID 16675)
+-- Name: hardware_component_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicehardwarecomponent ALTER COLUMN hardware_component_id SET DEFAULT nextval('devicehardwarecomponent_hardware_component_id_seq'::regclass);
+
+
+--
+-- TOC entry 2154 (class 2604 OID 41003)
+-- Name: component_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicehardwarecomponent ALTER COLUMN component_id SET DEFAULT nextval('devicehardwarecomponent_component_id_seq'::regclass);
+
+
+--
+-- TOC entry 2155 (class 2604 OID 16687)
+-- Name: state_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicestate ALTER COLUMN state_id SET DEFAULT nextval('devicestate_state_id_seq'::regclass);
+
+
+--
+-- TOC entry 2156 (class 2604 OID 16688)
+-- Name: device_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicestate ALTER COLUMN device_id SET DEFAULT nextval('devicestate_device_id_seq'::regclass);
+
+
+--
+-- TOC entry 2157 (class 2604 OID 16689)
+-- Name: device_state_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicestate ALTER COLUMN device_state_id SET DEFAULT nextval('devicestate_device_state_id_seq'::regclass);
+
+
+--
+-- TOC entry 2158 (class 2604 OID 16699)
+-- Name: hardware_component_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponent ALTER COLUMN hardware_component_id SET DEFAULT nextval('hardwarecomponent_hardware_component_id_seq'::regclass);
+
+
+--
+-- TOC entry 2159 (class 2604 OID 16700)
+-- Name: hardware_component_family_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponent ALTER COLUMN hardware_component_family_id SET DEFAULT nextval('hardwarecomponent_hardware_component_family_id_seq'::regclass);
+
+
+--
+-- TOC entry 2160 (class 2604 OID 16712)
+-- Name: hardware_component_family_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponentfamily ALTER COLUMN hardware_component_family_id SET DEFAULT nextval('hardwarecomponentfamily_hardware_component_family_id_seq'::regclass);
+
+
+--
+-- TOC entry 2161 (class 2604 OID 16713)
+-- Name: hardware_component_type_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponentfamily ALTER COLUMN hardware_component_type_id SET DEFAULT nextval('hardwarecomponentfamily_hardware_component_type_id_seq'::regclass);
+
+
+--
+-- TOC entry 2162 (class 2604 OID 16714)
+-- Name: developer_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponentfamily ALTER COLUMN developer_id SET DEFAULT nextval('hardwarecomponentfamily_developer_id_seq'::regclass);
+
+
+--
+-- TOC entry 2163 (class 2604 OID 16722)
+-- Name: hardware_component_type_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponenttype ALTER COLUMN hardware_component_type_id SET DEFAULT nextval('hardwarecomponenttype_hardware_component_type_id_seq'::regclass);
+
+
+--
+-- TOC entry 2165 (class 2604 OID 16738)
+-- Name: hardware_component_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY memorymodule ALTER COLUMN hardware_component_id SET DEFAULT nextval('memorymodule_hardware_component_id_seq'::regclass);
+
+
+--
+-- TOC entry 2168 (class 2604 OID 16748)
+-- Name: hardware_component_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY networkadapter ALTER COLUMN hardware_component_id SET DEFAULT nextval('networkadapter_hardware_component_id_seq'::regclass);
+
+
+--
+-- TOC entry 2170 (class 2604 OID 49265)
+-- Name: precedent_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY precedent ALTER COLUMN precedent_id SET DEFAULT nextval('precedent_precedent_id_seq'::regclass);
+
+
+--
+-- TOC entry 2171 (class 2604 OID 49289)
+-- Name: task_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY precedent ALTER COLUMN task_id SET DEFAULT nextval('precedent_task_id_seq'::regclass);
+
+
+--
+-- TOC entry 2172 (class 2604 OID 49296)
+-- Name: device_state_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY precedent ALTER COLUMN device_state_id SET DEFAULT nextval('precedent_device_state_id_seq'::regclass);
+
+
+--
+-- TOC entry 2174 (class 2604 OID 16785)
+-- Name: hardware_component_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY processor ALTER COLUMN hardware_component_id SET DEFAULT nextval('processor_hardware_component_id_seq'::regclass);
+
+
+--
+-- TOC entry 2178 (class 2604 OID 16804)
+-- Name: state_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY state ALTER COLUMN state_id SET DEFAULT nextval('state_state_id_seq'::regclass);
+
+
+--
+-- TOC entry 2184 (class 2604 OID 16819)
+-- Name: user_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY sysuser ALTER COLUMN user_id SET DEFAULT nextval('sysuser_user_id_seq'::regclass);
+
+
+--
+-- TOC entry 2185 (class 2604 OID 16820)
+-- Name: user_type_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY sysuser ALTER COLUMN user_type_id SET DEFAULT nextval('sysuser_user_type_id_seq'::regclass);
+
+
+--
+-- TOC entry 2187 (class 2604 OID 16833)
+-- Name: task_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY task ALTER COLUMN task_id SET DEFAULT nextval('task_task_id_seq'::regclass);
+
+
+--
+-- TOC entry 2192 (class 2604 OID 16845)
+-- Name: user_type_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY usertype ALTER COLUMN user_type_id SET DEFAULT nextval('usertype_user_type_id_seq'::regclass);
+
+
+--
+-- TOC entry 2253 (class 2606 OID 49458)
+-- Name: attribute_weight_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY attribute_weight
+    ADD CONSTRAINT attribute_weight_pkey PRIMARY KEY (weight_state_id);
+
+
+--
+-- TOC entry 2196 (class 2606 OID 16655)
+-- Name: battey_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY battery
+    ADD CONSTRAINT battey_pkey PRIMARY KEY (hardware_component_id);
+
+
+--
+-- TOC entry 2206 (class 2606 OID 90684)
+-- Name: devStateUni; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY devicestate
+    ADD CONSTRAINT "devStateUni" UNIQUE (device_id, state_id);
+
+
+--
+-- TOC entry 2201 (class 2606 OID 16666)
+-- Name: device_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY device
+    ADD CONSTRAINT device_pkey PRIMARY KEY (device_id);
+
+
+--
+-- TOC entry 2203 (class 2606 OID 41010)
+-- Name: devicehardwarecomponent_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY devicehardwarecomponent
+    ADD CONSTRAINT devicehardwarecomponent_pkey PRIMARY KEY (component_id);
+
+
+--
+-- TOC entry 2210 (class 2606 OID 16691)
+-- Name: devicestate_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY devicestate
+    ADD CONSTRAINT devicestate_pkey PRIMARY KEY (device_state_id);
+
+
+--
+-- TOC entry 2215 (class 2606 OID 16702)
+-- Name: hardwarecomponent_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY hardwarecomponent
+    ADD CONSTRAINT hardwarecomponent_pkey PRIMARY KEY (hardware_component_id);
+
+
+--
+-- TOC entry 2217 (class 2606 OID 16716)
+-- Name: hardwarecomponentfamily_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY hardwarecomponentfamily
+    ADD CONSTRAINT hardwarecomponentfamily_pkey PRIMARY KEY (hardware_component_family_id);
+
+
+--
+-- TOC entry 2220 (class 2606 OID 16724)
+-- Name: hardwarecomponenttype_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY hardwarecomponenttype
+    ADD CONSTRAINT hardwarecomponenttype_pkey PRIMARY KEY (hardware_component_type_id);
+
+
+--
+-- TOC entry 2225 (class 2606 OID 16732)
+-- Name: hardwaredeveloper_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY developer
+    ADD CONSTRAINT hardwaredeveloper_pkey PRIMARY KEY (developer_id);
+
+
+--
+-- TOC entry 2227 (class 2606 OID 16742)
+-- Name: memorymodule_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY memorymodule
+    ADD CONSTRAINT memorymodule_pkey PRIMARY KEY (hardware_component_id);
+
+
+--
+-- TOC entry 2231 (class 2606 OID 16751)
+-- Name: networkadapter_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY networkadapter
+    ADD CONSTRAINT networkadapter_pkey PRIMARY KEY (hardware_component_id);
+
+
+--
+-- TOC entry 2233 (class 2606 OID 49286)
+-- Name: precedent_id; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY precedent
+    ADD CONSTRAINT precedent_id PRIMARY KEY (precedent_id);
+
+
+--
+-- TOC entry 2236 (class 2606 OID 16790)
+-- Name: processor_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY processor
+    ADD CONSTRAINT processor_pkey PRIMARY KEY (hardware_component_id);
+
+
+--
+-- TOC entry 2239 (class 2606 OID 16811)
+-- Name: state_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY state
+    ADD CONSTRAINT state_pkey PRIMARY KEY (state_id);
+
+
+--
+-- TOC entry 2242 (class 2606 OID 40997)
+-- Name: sysuser_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY sysuser
+    ADD CONSTRAINT sysuser_email_key UNIQUE (email);
+
+
+--
+-- TOC entry 2245 (class 2606 OID 16827)
+-- Name: sysuser_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY sysuser
+    ADD CONSTRAINT sysuser_pkey PRIMARY KEY (user_id);
+
+
+--
+-- TOC entry 2247 (class 2606 OID 16839)
+-- Name: task_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY task
+    ADD CONSTRAINT task_pkey PRIMARY KEY (task_id);
+
+
+--
+-- TOC entry 2250 (class 2606 OID 16847)
+-- Name: usertype_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+
+ALTER TABLE ONLY usertype
+    ADD CONSTRAINT usertype_pkey PRIMARY KEY (user_type_id);
+
+
+--
+-- TOC entry 2197 (class 1259 OID 40974)
+-- Name: bettery_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX bettery_index ON battery USING hash (hardware_component_id);
+
+
+--
+-- TOC entry 2223 (class 1259 OID 40976)
+-- Name: developer_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX developer_id_index ON developer USING hash (developer_id);
+
+
+--
+-- TOC entry 2198 (class 1259 OID 40978)
+-- Name: device_developer_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX device_developer_id_index ON device USING hash (developer_id);
+
+
+--
+-- TOC entry 2199 (class 1259 OID 40977)
+-- Name: device_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX device_id_index ON device USING hash (device_id);
+
+
+--
+-- TOC entry 2207 (class 1259 OID 40982)
+-- Name: device_state_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX device_state_id_index ON devicestate USING hash (device_state_id);
+
+
+--
+-- TOC entry 2208 (class 1259 OID 40981)
+-- Name: devicestate_device_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX devicestate_device_id_index ON devicestate USING hash (device_id);
+
+
+--
+-- TOC entry 2211 (class 1259 OID 49431)
+-- Name: devicestate_state_id_device_id_idx; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE UNIQUE INDEX devicestate_state_id_device_id_idx ON devicestate USING btree (state_id, device_id);
+
+
+--
+-- TOC entry 2212 (class 1259 OID 40980)
+-- Name: devicestate_state_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX devicestate_state_id_index ON devicestate USING hash (state_id);
+
+
+--
+-- TOC entry 2213 (class 1259 OID 40975)
+-- Name: h_cop_index_id; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX h_cop_index_id ON hardwarecomponent USING hash (hardware_component_id);
+
+
+--
+-- TOC entry 2204 (class 1259 OID 40979)
+-- Name: hc_device_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX hc_device_id_index ON devicehardwarecomponent USING hash (device_id);
+
+
+--
+-- TOC entry 2221 (class 1259 OID 40984)
+-- Name: hc_family_c_type_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX hc_family_c_type_index ON hardwarecomponenttype USING hash (hardware_component_type_id);
+
+
+--
+-- TOC entry 2218 (class 1259 OID 40983)
+-- Name: hc_family_developer_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX hc_family_developer_id_index ON hardwarecomponentfamily USING hash (developer_id);
+
+
+--
+-- TOC entry 2222 (class 1259 OID 40985)
+-- Name: hc_type_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX hc_type_id_index ON hardwarecomponenttype USING hash (hardware_component_type_id);
+
+
+--
+-- TOC entry 2228 (class 1259 OID 40986)
+-- Name: mm_hc_id_index; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX mm_hc_id_index ON memorymodule USING hash (hardware_component_id);
+
+
+--
+-- TOC entry 2229 (class 1259 OID 40987)
+-- Name: na_hc_id; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX na_hc_id ON networkadapter USING hash (hardware_component_id);
+
+
+--
+-- TOC entry 2234 (class 1259 OID 40992)
+-- Name: p_hr_cp_id; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX p_hr_cp_id ON processor USING hash (hardware_component_id);
+
+
+--
+-- TOC entry 2237 (class 1259 OID 40994)
+-- Name: st_id; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX st_id ON state USING hash (state_id);
+
+
+--
+-- TOC entry 2240 (class 1259 OID 40995)
+-- Name: su_us_id; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX su_us_id ON sysuser USING hash (user_id);
+
+
+--
+-- TOC entry 2243 (class 1259 OID 40998)
+-- Name: sysuser_email_password_idx; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX sysuser_email_password_idx ON sysuser USING btree (email, password);
+
+
+--
+-- TOC entry 2248 (class 1259 OID 40999)
+-- Name: task_task_id_idx; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX task_task_id_idx ON task USING hash (task_id);
+
+
+--
+-- TOC entry 2251 (class 1259 OID 41000)
+-- Name: usertype_user_type_id_idx; Type: INDEX; Schema: public; Owner: postgres; Tablespace: 
+--
+
+CREATE INDEX usertype_user_type_id_idx ON usertype USING hash (user_type_id);
+
+
+--
+-- TOC entry 2271 (class 2620 OID 41061)
+-- Name: check_state_t; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER check_state_t BEFORE INSERT OR UPDATE ON devicestate FOR EACH ROW EXECUTE PROCEDURE check_state();
+
+
+--
+-- TOC entry 2273 (class 2620 OID 98888)
+-- Name: delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER delete_dep BEFORE UPDATE ON hardwarecomponent FOR EACH ROW EXECUTE PROCEDURE t_delete_harware_dep_ent();
+
+
+--
+-- TOC entry 2279 (class 2620 OID 98892)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE OR UPDATE ON processor FOR EACH ROW EXECUTE PROCEDURE t_delete_harware_dep_ent();
+
+
+--
+-- TOC entry 2277 (class 2620 OID 98895)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE OR UPDATE ON networkadapter FOR EACH ROW EXECUTE PROCEDURE t_delete_harware_dep_ent();
+
+
+--
+-- TOC entry 2276 (class 2620 OID 98896)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE OR UPDATE ON memorymodule FOR EACH ROW EXECUTE PROCEDURE t_delete_harware_dep_ent();
+
+
+--
+-- TOC entry 2270 (class 2620 OID 98897)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE OR UPDATE ON battery FOR EACH ROW EXECUTE PROCEDURE t_delete_harware_dep_ent();
+
+
+--
+-- TOC entry 2280 (class 2620 OID 98902)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE OR UPDATE ON task FOR EACH ROW EXECUTE PROCEDURE t_delete_task_dep_ent();
+
+
+--
+-- TOC entry 2272 (class 2620 OID 98903)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE OR UPDATE ON devicestate FOR EACH ROW EXECUTE PROCEDURE t_delete_ds_dep_ent();
+
+
+--
+-- TOC entry 2275 (class 2620 OID 98909)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE ON developer FOR EACH ROW EXECUTE PROCEDURE t_delete_developer_dep_ent();
+
+
+--
+-- TOC entry 2274 (class 2620 OID 98910)
+-- Name: t_delete_dep; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER t_delete_dep BEFORE DELETE ON hardwarecomponentfamily FOR EACH ROW EXECUTE PROCEDURE t_delete_hcf_dep_ent();
+
+
+--
+-- TOC entry 2278 (class 2620 OID 98894)
+-- Name: time_to_solve; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER time_to_solve AFTER INSERT ON precedent FOR EACH ROW EXECUTE PROCEDURE set_time_to_solve();
+
+
+--
+-- TOC entry 2269 (class 2606 OID 82481)
+-- Name: attribute_weight_precedent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY attribute_weight
+    ADD CONSTRAINT attribute_weight_precedent_id_fkey FOREIGN KEY (precedent_id) REFERENCES precedent(precedent_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2267 (class 2606 OID 57838)
+-- Name: battery_is_a; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY processor
+    ADD CONSTRAINT battery_is_a FOREIGN KEY (hardware_component_id) REFERENCES hardwarecomponent(hardware_component_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2262 (class 2606 OID 57848)
+-- Name: memorymodule_is_a; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY memorymodule
+    ADD CONSTRAINT memorymodule_is_a FOREIGN KEY (hardware_component_id) REFERENCES hardwarecomponent(hardware_component_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2263 (class 2606 OID 57853)
+-- Name: networkadapter_is_a; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY networkadapter
+    ADD CONSTRAINT networkadapter_is_a FOREIGN KEY (hardware_component_id) REFERENCES hardwarecomponent(hardware_component_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2264 (class 2606 OID 57753)
+-- Name: precedent_device_state_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY precedent
+    ADD CONSTRAINT precedent_device_state_id_fkey FOREIGN KEY (device_state_id) REFERENCES devicestate(device_state_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2265 (class 2606 OID 57758)
+-- Name: precedent_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY precedent
+    ADD CONSTRAINT precedent_task_id_fkey FOREIGN KEY (task_id) REFERENCES task(task_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2266 (class 2606 OID 57833)
+-- Name: processor_is_a; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY processor
+    ADD CONSTRAINT processor_is_a FOREIGN KEY (hardware_component_id) REFERENCES hardwarecomponent(hardware_component_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2268 (class 2606 OID 16933)
+-- Name: r_12; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY sysuser
+    ADD CONSTRAINT r_12 FOREIGN KEY (user_type_id) REFERENCES usertype(user_type_id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 2260 (class 2606 OID 49164)
+-- Name: r_27; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponentfamily
+    ADD CONSTRAINT r_27 FOREIGN KEY (hardware_component_type_id) REFERENCES hardwarecomponenttype(hardware_component_type_id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 2259 (class 2606 OID 16878)
+-- Name: r_28; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponent
+    ADD CONSTRAINT r_28 FOREIGN KEY (hardware_component_family_id) REFERENCES hardwarecomponentfamily(hardware_component_family_id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 2261 (class 2606 OID 49169)
+-- Name: r_29; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY hardwarecomponentfamily
+    ADD CONSTRAINT r_29 FOREIGN KEY (developer_id) REFERENCES developer(developer_id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 2255 (class 2606 OID 57809)
+-- Name: r_30; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicehardwarecomponent
+    ADD CONSTRAINT r_30 FOREIGN KEY (device_id) REFERENCES device(device_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2256 (class 2606 OID 57814)
+-- Name: r_31; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicehardwarecomponent
+    ADD CONSTRAINT r_31 FOREIGN KEY (hardware_component_id) REFERENCES hardwarecomponent(hardware_component_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2254 (class 2606 OID 98882)
+-- Name: r_37; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY device
+    ADD CONSTRAINT r_37 FOREIGN KEY (developer_id) REFERENCES developer(developer_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2257 (class 2606 OID 90673)
+-- Name: r_5; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicestate
+    ADD CONSTRAINT r_5 FOREIGN KEY (state_id) REFERENCES state(state_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2258 (class 2606 OID 90678)
+-- Name: r_6; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY devicestate
+    ADD CONSTRAINT r_6 FOREIGN KEY (device_id) REFERENCES device(device_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- TOC entry 2287 (class 0 OID 0)
+-- Dependencies: 5
+-- Name: public; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA public FROM postgres;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+
+
+-- Completed on 2013-05-31 04:45:45
+
+--
+-- PostgreSQL database dump complete
+--
+
