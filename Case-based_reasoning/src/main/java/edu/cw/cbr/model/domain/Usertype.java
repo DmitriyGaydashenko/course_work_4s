@@ -18,7 +18,6 @@ public class Usertype implements Serializable{
 	private static final long serialVersionUID = 7810637874992156548L;
 	private int userTypeId;
 	private String userTypeName;
-	//private Set<Sysuser> sysusers = new HashSet<Sysuser>(0);
 
 	public Usertype() {
 	}
@@ -48,11 +47,11 @@ public class Usertype implements Serializable{
 	}
 
 	/*@OneToMany(fetch = FetchType.LAZY, mappedBy = "usertype")
-	public Set<Sysuser> getSysusers() {
+	public Set<SysuserController> getSysusers() {
 		return this.sysusers;
 	}*/
 
-	/*public void setSysusers(Set<Sysuser> sysusers) {
+	/*public void setSysusers(Set<SysuserController> sysusers) {
 		this.sysusers = sysusers;
 	}*/
 	

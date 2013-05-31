@@ -2,6 +2,9 @@ package edu.cw.cbr.model.domain;
 
 // Generated 27.04.2013 1:42:58 by Hibernate Tools 4.0.0
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -17,7 +20,7 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(name = "precedent", schema = "public")
-public class Precedent{
+public class Precedent extends ArrayAble{
 
 	private int precedentId;
 	private Task task;
@@ -67,11 +70,11 @@ public class Precedent{
 
 	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "device_state_id", nullable = false)
-	public DeviceState getDevicestate() {
+	public DeviceState getDeviceState() {
 		return this.deviceState;
 	}
 
-	public void setDevicestate(DeviceState deviceState) {
+	public void setDeviceState(DeviceState deviceState) {
 		this.deviceState = deviceState;
 	}
 
@@ -85,12 +88,24 @@ public class Precedent{
 	}
 
 	@Column(name = "is_solved_correctly")
-	public Boolean isSolvedCorrectly() {
+	public Boolean getIsSolvedCorrectly() {
 		return this.isSolvedCorrectly;
 	}
 
-	public void setSolvedCorrectly(Boolean isSolvedCorrectly) {
+	public void setIsSolvedCorrectly(Boolean isSolvedCorrectly) {
 		this.isSolvedCorrectly = isSolvedCorrectly;
+	}
+
+	@Override
+	public List<Object> toList() {
+		List<Object> lData = new ArrayList<Object>();
+		lData.add(this.getPrecedentId());
+		lData.add(this.getTask().getTaskId());
+		lData.add(this.getDeviceState().getDeviceData().getDeviceId());
+		lData.add(this.getDeviceState().getState().getStateId());
+		lData.add(this.getTimeToSolve() <= this.getTask().getMaxRunningTime());
+		lData.add(this.getIsSolvedCorrectly());
+		return lData;
 	}
 
 }

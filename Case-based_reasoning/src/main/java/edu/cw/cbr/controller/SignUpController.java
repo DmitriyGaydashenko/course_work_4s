@@ -5,6 +5,7 @@ import javax.servlet.http.HttpSession;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,7 +31,7 @@ public class SignUpController implements IController{
 	 */
 	@RequestMapping(value = "/signUp", method = RequestMethod.GET)
 	public String home(HttpSession httpSession, Model model) {
-		if (UserSession.isHttpSessionValid(httpSession))
+		if (UserSession.initModelAndSession(httpSession))
 			return "redirect:" + HOME_PAGE;
 		try {
 			model.addAttribute("userTypes", new UsertypeUtil()
@@ -50,7 +51,7 @@ public class SignUpController implements IController{
 	 */
 	@RequestMapping(value = "/signUp/validEmail", method = RequestMethod.POST)
 	public @ResponseBody String isEmailValid(@RequestParam String email) {
-		return SysuserUtil.isEmailExists(email)+"";
+		return (!SysuserUtil.isEmailExists(email))+"";
 	}
 	
 	/**

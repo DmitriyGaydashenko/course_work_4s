@@ -7,7 +7,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 
 import edu.cw.cbr.controller.security.UserSession;
 import edu.cw.cbr.model.SysuserUtil;
@@ -22,20 +21,16 @@ import edu.cw.cbr.model.domain.Sysuser;
 @Controller
 public class SignInController implements IController{
 	
-	@Override
-	public String home(HttpSession httpSession, Model model) {
-		if (UserSession.isHttpSessionValid(httpSession))
-			return "redirect:" + HOME_PAGE;
-		return "redirect:" + SIGN_IN;
-	}
-	
 	/**
 	 * Processes <tt>/signIn</tt> request. Returns view of <tt>/signIn</tt> 
 	 * page;
 	 * @return reference on view of <tt>/signIn</tt> page.
 	 */
+	@Override
 	@RequestMapping(value = "/signIn", method = RequestMethod.GET)
-	public String signIn() {
+	public String home(HttpSession httpSession, Model model) {
+		if (UserSession.initModelAndSession(httpSession))
+			return "redirect:" + HOME_PAGE;
 		return SIGN_IN;
 	}
 	
@@ -55,8 +50,13 @@ public class SignInController implements IController{
 		Sysuser user = new SysuserUtil().getSysuser(email, password);
 		Sysuser.UserState userState = Sysuser.getUserState(user);
 		if (userState == Sysuser.UserState.IS_VALID) {
-			session.setAttribute("userSession", 
-					new UserSession(user));
+			UserSession uSes = (UserSession) session
+					.getAttribute(UserSession.U_SESSION_NAME);
+			if (uSes != null)
+				uSes.setUser(user);
+			else
+				session.setAttribute(UserSession.U_SESSION_NAME, 
+						new UserSession(user));
 			return "redirect:" + HOME_PAGE;
 		}
 		String message = "";
@@ -66,5 +66,10 @@ public class SignInController implements IController{
 			message = "User with this email and password does not exist.";
 		model.addAttribute("Error", message);
 		return SIGN_IN;
+	}
+	
+	@RequestMapping(value = "/exit", method = RequestMethod.POST)
+	public void exit(HttpSession httpSession, Model model) {
+		UserSession.removeUSession(httpSession);
 	}
 }

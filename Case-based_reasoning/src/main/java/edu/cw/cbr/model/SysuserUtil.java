@@ -1,10 +1,15 @@
 package edu.cw.cbr.model;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.Criteria;
+import org.hibernate.FetchMode;
+import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import edu.cw.cbr.controller.security.SecurityUtil;
 import edu.cw.cbr.model.dao.GenericDAO;
@@ -12,7 +17,7 @@ import edu.cw.cbr.model.domain.Sysuser;
 
 /**
  * The class {@code SysuserUtil} contains methods for performing basic
- * operations with {@code Sysuser}.
+ * operations with {@code SysuserController}.
  * @author Dmitriy Gaydashenko
  *
  */
@@ -34,6 +39,12 @@ public class SysuserUtil extends GenericTableAble<Sysuser>{
 		 * Invalid parameter
 		 */
 		INVALID_PARAM};
+		
+		private static List<String> needSpecialTreat;
+		static {	
+			needSpecialTreat = new ArrayList<String>();
+			needSpecialTreat.add("userType");
+		}
 		
 	public SysuserUtil() {
 		super(Sysuser.class);
@@ -60,11 +71,11 @@ public class SysuserUtil extends GenericTableAble<Sysuser>{
 	}
 	
 	/**
-	 * Returns instance of {@code Sysuser} if there user exists with email and
+	 * Returns instance of {@code SysuserController} if there user exists with email and
 	 * password equal to {@code email, password}, else returns <tt>null</tt>.
 	 * @param email - user's email.
 	 * @param password - user's password.
-	 * @return instance of Sysuser if it exists with email and password
+	 * @return instance of SysuserController if it exists with email and password
 	 * equal to
 	 * {@code email, password} exists, else returns <tt>null</tt>.
 	 */
@@ -91,7 +102,7 @@ public class SysuserUtil extends GenericTableAble<Sysuser>{
 		// check user's attributes
 		if(!Sysuser.isValidParams(fName, lName, email, password, usertypeId))
 			return SysuserUtil.RegistrationState.INVALID_PARAM;
-		if (!isEmailExists(email))
+		if (isEmailExists(email))
 			return RegistrationState.EMAIL_EXISTS;
 		return RegistrationState.SUCCESS;
 	}
@@ -107,7 +118,88 @@ public class SysuserUtil extends GenericTableAble<Sysuser>{
 		SysuserDAO dao = util.getNewDAO();
 		boolean exist = dao.emailExist(email);
 		dao.closeSession();
-		return !exist;
+		return exist;
+	}
+	
+	public boolean changeEmail(int id, String password, String email) {
+		Sysuser user = getUser(id);
+		if(user == null  || !SysuserUtil.equals(user, password))
+			return false;
+		else {
+			SysuserDAO dao = getNewDAO();
+			user.setEmail(email);
+			dao.updateEntity(user);
+			dao.closeSession();
+		}
+		return true;
+	}
+	
+	public boolean changePass(int id, String oldPassword, String password) {
+		Sysuser user = getUser(id);
+		if(user == null  || !SysuserUtil.equals(user, oldPassword))
+			return false;
+		else {
+			SysuserDAO dao = getNewDAO();
+			user.setPassword(SecurityUtil.hashInput(password));
+			dao.updateEntity(user);
+			dao.closeSession();
+		}
+		return true;
+	}
+	
+	public boolean update(int entId, String fName, String lName,
+			String email, int typeId, boolean isVerified) {
+		Sysuser user = getUser(entId);
+		if(user == null)
+			return false;
+		user.setFName(fName);
+		user.setLName(lName);
+		user.setEmail(email);
+		try {
+			user.setUsertype(new UsertypeUtil().getEntity(typeId));
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return false;
+		}
+		user.setVerified(isVerified);
+		SysuserDAO dao = getNewDAO();
+		dao.updateEntity(user);
+		dao.closeSession();
+		return true;
+	}
+	
+	public boolean changeType(int id, String password, int type) {
+		Sysuser user = getUser(id);
+		if(user == null  || !SysuserUtil.equals(user, password))
+			return false;
+		else {
+			try {
+				user.setUsertype(new UsertypeUtil().getEntity(type));
+			} catch (SQLException e) {
+				e.printStackTrace();
+				return false;
+			}
+			user.setVerified(false);
+			SysuserDAO dao = getNewDAO();
+			dao.updateEntity(user);
+			dao.closeSession();
+		}
+		return true;
+	}
+	
+	private Sysuser getUser(int id) {
+		Sysuser user = null;
+		try {
+			user = getEntity(id);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return user;
+	}
+	
+	public static boolean equals(Sysuser user, String password) {
+		return user != null && user.getPassword()
+				.equals(SecurityUtil.hashInput(password));
 	}
 	
 	/**
@@ -143,8 +235,14 @@ public class SysuserUtil extends GenericTableAble<Sysuser>{
 	}
 	@Override
 	public List<String> getAllCols() {
-		// TODO Auto-generated method stub
-		return null;
+		List<String> cols = new ArrayList<String>();
+		cols.add("userId");
+		cols.add("FName");
+		cols.add("LName");
+		cols.add("email");
+		cols.add("usertype");
+		cols.add("isVerified");
+		return cols;
 	}
 	@Override
 	protected SysuserDAO getNewDAO() {
@@ -154,37 +252,31 @@ public class SysuserUtil extends GenericTableAble<Sysuser>{
 
 class SysuserDAO extends GenericDAO<Sysuser>{
 	
-	/**
-	 * HQL script, which returns user by email and password.
-	 */
-	private static final String HQL_SUSER_BY_EMAIL_PASS = 
-			"from Sysuser where email = '%s' and password = '%s'";
-	
 	public SysuserDAO() {
 		super(Sysuser.class);
 	}
 	
 	/**
-	 * Returns, if exists, instance of {@code Sysuser} by email and hash of
+	 * Returns, if exists, instance of {@code SysuserController} by email and hash of
 	 * password, else return <tt>null</tt>.
-	 * @param email - instance's of {@code Sysuser} email.
-	 * @param hPassword - instance's of {@code Sysuser} password's hash.
-	 * @return - if instance of {@code Sysuser} with such email and password 
+	 * @param email - instance's of {@code SysuserController} email.
+	 * @param hPassword - instance's of {@code SysuserController} password's hash.
+	 * @return - if instance of {@code SysuserController} with such email and password 
 	 * exists returns it, else returns <tt>null</tt>.
 	 */
 	@SuppressWarnings("unchecked")
 	public Sysuser getSysuser(String email, String hPassword) {
-		List<Sysuser> users = this.session.createQuery(
-				String.format(HQL_SUSER_BY_EMAIL_PASS, email, hPassword))
-				.list();
+		List<Sysuser> users = this.session.createCriteria(Sysuser.class)
+				.add(Restrictions.and(Restrictions.eq("email", email),
+						Restrictions.eq("password", hPassword))).list();
 		return users.isEmpty() ? null : users.get(0);
 	}
 	
 	/**
-	 * Returns <tt>true</tt> if instance of {@code Sysuser} with email equals
+	 * Returns <tt>true</tt> if instance of {@code SysuserController} with email equals
 	 * to {@code email} exists.
-	 * @param email - instance's of {@code Sysuser} email. 
-	 * @return <tt>true</tt> if instance of {@code Sysuser} with email equals
+	 * @param email - instance's of {@code SysuserController} email. 
+	 * @return <tt>true</tt> if instance of {@code SysuserController} with email equals
 	 * to {@code email} exists.
 	 */
 	public boolean emailExist(String email) {
@@ -192,5 +284,24 @@ class SysuserDAO extends GenericDAO<Sysuser>{
 				.add(Restrictions.eq("email", email))
 				.setProjection(Projections.rowCount()).uniqueResult();
 		return count > 0;
+	}
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<Sysuser> getEntities(int from, int max,
+			String orderBy, boolean asc) {
+		Criteria crit = session.createCriteria(CLASS);
+		if (HardwareComponentFamilyUtil.getNeedSpecialTreat().contains(orderBy)) {
+			switch (orderBy) {
+			case "userType" :
+				crit.createAlias("userType", "uT")
+				.setFetchMode("Ut", FetchMode.JOIN);
+				orderBy = "uT.userTypeName";
+				break;
+			}
+		}
+		Order order = asc ? Order.asc(orderBy) : Order.desc(orderBy);
+		return (List<Sysuser>)crit.addOrder(order)
+				.setFirstResult(from).setMaxResults(max).list();
 	}
 }

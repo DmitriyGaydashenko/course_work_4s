@@ -7,6 +7,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import edu.cw.cbr.controller.security.UserSession;
 import edu.cw.cbr.model.TaskUtil;
 import edu.cw.cbr.model.domain.Task;
 
@@ -23,6 +25,7 @@ public class TaskController extends ConnectedController<Task>{
 	 * Instantiates a new processor controller, which provides methods to 
 	 * process requests to instances of {@code Task}.
 	 */
+	
 	public TaskController() {
 		super(new TaskUtil(), "tasks",
 				"/tasks/");
@@ -40,10 +43,9 @@ public class TaskController extends ConnectedController<Task>{
 	 */
 	@RequestMapping(value = "/", method = RequestMethod.GET)
 	public String home(HttpSession httpSession, Model model) {
-		//if (!UserSession.isHttpSessionValid(httpSession))
-			//return "redirect:" + SignInController.SIGN_IN;
-		//UserInfController.mapUserInf(model, (UserSession)httpSession.
-				//getAttribute(UserSession.U_SESSION_NAME));
+		if (!UserSession.initModelAndSession(httpSession))
+			return "redirect:" + SignInController.SIGN_IN;
+		UserInfController.mapUserInf(model, httpSession);
 		return MAPPED_CLASS_VIEW;
 	}
 	
@@ -67,8 +69,8 @@ public class TaskController extends ConnectedController<Task>{
 			@RequestParam float complex, @RequestParam float memoryNeed,
 			@RequestParam float dataToDown, @RequestParam float dataToUp,
 			@RequestParam float timeReq) {
-		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return "redirect:" + SignInController.SIGN_IN;
+		if (!UserSession.initModelAndSession(httpSession))
+			return "redirect:" + SignInController.SIGN_IN;
 		if(!((TaskUtil) UTIL).addNewTask(complex, memoryNeed, dataToDown,
 				dataToUp, timeReq))
 			model.addAttribute(Error.ADD.getFlag(), Error.ADD.getMessage());
@@ -96,8 +98,8 @@ public class TaskController extends ConnectedController<Task>{
 			@RequestParam int taskId, @RequestParam float complex, 
 			@RequestParam float memoryNeed,	@RequestParam float dataToDown,
 			@RequestParam float dataToUp, @RequestParam float timeReq) {
-		//if (!UserSession.isHttpSessionValid(httpSession))
-		//return "redirect:" + SignInController.SIGN_IN;
+		if (!UserSession.initModelAndSession(httpSession))
+			return "redirect:" + SignInController.SIGN_IN;
 		if(!((TaskUtil) UTIL).updateTask(taskId, complex, memoryNeed,
 				dataToDown, dataToUp, timeReq))
 			model.addAttribute(Error.UPDATE.getFlag(), Error.UPDATE.getMessage());

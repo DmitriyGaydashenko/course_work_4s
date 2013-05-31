@@ -16,6 +16,8 @@ import edu.cw.cbr.model.domain.Usertype;
  */
 public class UsertypeUtil extends GenericUtil<Usertype>{
 
+	private static final int ADMIN_ID = 1;
+	
 	public UsertypeUtil() {
 		super(Usertype.class);
 	}
@@ -61,5 +63,9 @@ public class UsertypeUtil extends GenericUtil<Usertype>{
 	@Override
 	protected GenericDAO<Usertype> getNewDAO() {
 		return new GenericDAO<Usertype>(CLASS);
+	}
+	
+	public static boolean isAdmin(int id) {
+		return id == UsertypeUtil.ADMIN_ID;
 	}
 }

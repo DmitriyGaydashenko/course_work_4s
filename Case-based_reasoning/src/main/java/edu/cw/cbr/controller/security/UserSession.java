@@ -5,6 +5,7 @@ import javax.servlet.http.HttpSession;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import edu.cw.cbr.model.UsertypeUtil;
 import edu.cw.cbr.model.domain.Sysuser;
 
 // TODO: Auto-generated Javadoc
@@ -18,52 +19,53 @@ public final class UserSession {
 	/** Name of attribute in HTTP session, which stores instance of. {@code UserSession} */
 	public static final String U_SESSION_NAME = "userSession";
 	
-	/**
-	 * User's unique identifier.
-	 */
-	private int userId;
-	
-	/**
-	 * User's first name. Is designed to prevent frequent queries to the 
-	 * database
-	 */
-	private String fName;
-	
-	/**
-	 * User's last name. Is designed to prevent frequent queries to the 
-	 * database
-	 */
-	private String lName;
-	/**
-	 * User's IP address.
-	 */
+	private Sysuser user;
 	private String IPAddress;
 	
 	/**
 	 * Constructs new user session with user's identifier - {@code id}
 	 * and user's IP address - {@code IPAddress}.
 	 *
-	 * @param user - instance of {@code Sysuser}, which represents the user
+	 * @param user - instance of {@code SysuserController}, which represents the user
 	 * whose session is created.
 	 */
 	public UserSession(Sysuser user) {
-		this.userId = user.getUserId();
-		this.fName = user.getFName();
-		this.lName = user.getLName();
+		this.user = user;
 		// get IP Address of current session
 		this.IPAddress = ((ServletRequestAttributes) RequestContextHolder.
 			    currentRequestAttributes()).
-			    getRequest().getRemoteAddr();;
+			    getRequest().getRemoteAddr();
+	}
+	
+	public Sysuser getUser() {
+		return user;
+	}
+	
+	public UserSession() {
+		this.user = null;
+		// get IP Address of current session
+		this.IPAddress = ((ServletRequestAttributes) RequestContextHolder.
+			    currentRequestAttributes()).
+			    getRequest().getRemoteAddr();
+	}
+	
+	public int getTypeId() {
+		return user == null ? -1 :this.user.getUsertype().getUserTypeId();
 	}
 	
 	
+
+	public void setUser(Sysuser user) {
+		this.user = user;
+	}
+
 	/**
 	 * Gets the id.
 	 *
 	 * @return the id
 	 */
 	public int getId() {
-		return userId;
+		return user == null ? -1 : user.getUserId();
 	}
 	
 	
@@ -82,7 +84,7 @@ public final class UserSession {
 	 * @return the user's first name
 	 */
 	public String getFName() {
-		return fName;
+		return user == null ? "" : user.getFName();
 	}
 
 	/**
@@ -91,7 +93,12 @@ public final class UserSession {
 	 * @return the user's last name
 	 */
 	public String getLName() {
-		return lName;
+		return user == null ? "" : user.getLName();
+	}
+
+	public boolean isAdmin() {
+		return user == null ? false : UsertypeUtil.isAdmin(user
+				.getUsertype().getUserTypeId());
 	}
 
 	/**
@@ -100,10 +107,11 @@ public final class UserSession {
 	 * @return <tt>true</tt> if userSession is defined and 
 	 * valid in current HTTP session.
 	 */
-	public static boolean isHttpSessionValid(HttpSession session) {
-		UserSession userSession = (UserSession)
-				session.getAttribute(UserSession.U_SESSION_NAME);
+	public static boolean initModelAndSession(HttpSession session) {
+		UserSession userSession = getUSession(session);
 		// get IP Address of current session
+		if(userSession == null || userSession.getUser() == null)
+			return false;
 		String IPAddress = 
 				  ((ServletRequestAttributes) RequestContextHolder.
 				    currentRequestAttributes()).
@@ -111,5 +119,14 @@ public final class UserSession {
 		return  userSession != null && userSession.IPAddress.equals(IPAddress);
 	}
 	
+	public static UserSession getUSession(HttpSession session) {
+		return (UserSession) session.getAttribute(UserSession.U_SESSION_NAME);
+	}
+	
+	public static void removeUSession(HttpSession session) {
+		UserSession userSession = getUSession(session);
+		userSession.user = null;
+		session.removeAttribute(U_SESSION_NAME);
+	}
 	
 }
